@@ -1,0 +1,105 @@
+/* Vinculación con dispositivos reales (Home Assistant). */
+.device-status{gap:6px}
+.device-status:before{content:'';width:6px;height:6px;border-radius:50%;background:#7c889a}
+.device-status[data-status=connected]:before{background:#9fd8a4;box-shadow:0 0 8px #9fd8a480}
+.device-status[data-status=connecting]:before,.device-status[data-status=reconnecting]:before{background:#f4cc93;animation:device-pulse 1.2s ease-in-out infinite}
+.device-status[data-status=error]:before{background:#f09a8f}
+@keyframes device-pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.device-status:before{animation:none!important}}
+
+.device-link{margin-top:12px;padding-top:10px;border-top:1px solid #ffffff12;display:grid;gap:6px}
+.device-link label{display:grid;gap:6px;color:#b7c4d8;font-size:10px}
+.device-link label>span{display:flex;align-items:center;gap:6px}
+.device-link select{margin:0;padding:7px 9px;font-size:11px}
+.device-state{font-size:10px;color:#a3b1c5;line-height:1.35}
+.device-state.online{color:#a9dcae}
+.device-state.offline{color:#f0b4a8}
+.selection-actions .device-connect{width:100%;height:30px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:10px;border-radius:10px;border:1px solid #ffffff1c;background:#111a322a;color:#e8d5b5}
+
+.room-lamp-list small.lamp-device{display:block;font-size:9px;color:#a9dcae;margin-top:2px}
+.room-lamp-list small.lamp-device.offline{color:#f0b4a8}
+
+.ha-form{display:grid;gap:14px;margin-top:16px;text-align:left}
+.ha-form label{display:grid;gap:7px;font-size:11px;color:#c8d3e2}
+.ha-form input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d3dff01f;background:#172132d9;color:#e6ecf5;font-size:12px}
+.ha-form small{font-size:10px;color:#94a3b8;line-height:1.45}
+.ha-feedback{margin:0;font-size:11px;color:#a3b1c5;min-height:16px}
+.ha-feedback[data-status=connected]{color:#a9dcae}
+.ha-feedback[data-status=error]{color:#f0b4a8}
+.ha-form .dialog-actions{margin-top:6px}
+.ha-form .dialog-actions .danger{margin-right:auto}
+
+/* Aire acondicionado: el slider va de frío a calor y el modo activo toma el color del modo. */
+.climate-controls{--mode:#5db2ff}
+.climate-controls[data-mode=heat]{--mode:#ff8c3a}
+.climate-controls[data-mode=dry]{--mode:#62e0cf}
+.climate-controls[data-mode=fan]{--mode:#cfdcff}
+.climate-controls[data-mode=auto]{--mode:#9bd28a}
+.climate-controls .climate-target{--slider-gradient:linear-gradient(90deg,#2f7df6,#58b4f5 34%,#f3e2c0 62%,#f6a54a 82%,#f0762c)}
+.climate-controls.climate-off .climate-target input{filter:saturate(.25) brightness(.8)}
+.climate-controls.climate-off .climate-target output{opacity:.55}
+.selection-actions .climate-controls [data-mode][aria-pressed=true]{color:var(--mode);background:color-mix(in srgb,var(--mode) 16%,transparent)}
+.climate-controls .light-modes{flex-wrap:wrap}
+.climate-current{margin:8px 0 0;font-size:10px;color:#a3b1c5}
+.climate-current strong{color:#e6ecf5;font-weight:600}
+.climate-fan{margin-top:10px;display:grid;gap:6px;color:#b7c4d8;font-size:10px}
+.climate-fan .light-modes{margin-top:0}
+.room-lighting .climate-heading{margin-top:14px}
+.room-lamp-list small.lamp-device.design{color:#94a3b8}
+
+/* Escenas de la casa */
+.scene-buttons{display:grid;gap:6px;margin:10px 0}
+.scene-row{display:flex;gap:6px;align-items:center}
+.scene-activate{flex:1;display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;border:1px solid #ffffff16;background:#ffffff08;color:#e8d5b5;font-size:11px;text-align:left}
+.scene-activate span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scene-delete{width:28px;height:28px;flex:none;opacity:.6}
+.scene-delete:hover{opacity:1}
+.scene-empty{font-size:10px;color:#94a3b8;margin:8px 0 10px;line-height:1.45}
+
+/* Registro de eventos */
+.event-log{list-style:none;margin:14px 0 0;padding:0;max-height:340px;overflow:auto;text-align:left;font-size:11px;border:1px solid #ffffff12;border-radius:10px}
+.event-log li{display:grid;grid-template-columns:70px 1fr;gap:10px;padding:7px 10px;border-bottom:1px solid #ffffff0a;color:#c8d3e2}
+.event-log li:last-child{border-bottom:0}
+.event-log time{color:#8d9bb0;font-variant-numeric:tabular-nums}
+.event-log span{overflow-wrap:anywhere}
+.event-log li.failed span{color:#f0b4a8}
+.tv-source{display:grid;gap:6px;margin-top:10px;color:#b7c4d8;font-size:10px}
+.tv-source select{margin:0;padding:7px 9px;font-size:11px}
+.plan-tools{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #ffffff12}
+.plan-tools label{display:grid;gap:6px;color:#b7c4d8;font-size:11px}
+.plan-tools .plan-lock{display:flex;align-items:center;gap:8px}
+.plan-tools small{color:#93a1b5;font-size:10px}
+#room-chips .level-chip{color:#b9c6d9}
+#room-chips .tool-divider{align-self:center;flex-shrink:0}
+#room-chips .room-sensor{font-size:9px;color:#9fc3e6;margin-left:2px}
+.level-list{display:grid;gap:6px;margin-bottom:10px}
+.level-row{display:flex;align-items:center;gap:6px;border:1px solid #ffffff0c;border-radius:8px;padding:4px 6px}
+.level-row.active{border-color:#e6ba8840;background:#e6ba880c}
+.level-row input{flex:1;background:none;border:0;font-size:11px;padding:6px 2px;color:#d8dde3}
+.level-row>button:first-child{color:#c9ac88;padding:4px}
+.contact-controls .device-link{margin-top:0;padding-top:0;border-top:0}
+.automation-row{align-items:center}
+.automation-row.disabled{opacity:.55}
+.automation-toggle{display:flex;align-items:center;gap:9px;flex:1;font-size:11px;padding:8px 4px;cursor:pointer}
+.automation-toggle strong{display:block;font-weight:550;color:#d8dde3}
+.automation-toggle small{display:block;font-size:9px;color:#93a1b5;margin-top:3px}
+.automation-days{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:10px;font-size:11px;color:#b7c4d8}
+#energy-total{display:flex;align-items:center;gap:5px;color:#e8c27a}
+#energy[aria-pressed=true]{border-color:#e8c27a80;color:#fff}
+.control-mode .library,.control-mode .scene-toolbar .tool-group,.control-mode .statusbar,.control-mode #save,.control-mode #open,.control-mode #help,.control-mode .project-title,.control-mode [data-view="walk"],.control-mode .scene-heading,.control-mode #walls,.control-mode [data-add-level],.control-mode .selection-actions [data-action="rotate"],.control-mode .selection-actions [data-action="duplicate"]{display:none!important}
+.control-mode .workspace{height:calc(100dvh - 78px)}
+.control-mode .room-lamp-list button{padding:14px 10px;font-size:13px}
+.control-mode #room-chips button{font-size:12px;padding:12px 14px}
+.control-mode #control-mode{background:var(--accent);color:var(--accent-ink)}
+
+/* Etiqueta al pasar sobre un equipo de la maqueta (como house-control). */
+.device-tip{position:absolute;z-index:9;display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:12px;border:1px solid #ffffff1f;background:#1b2236e6;backdrop-filter:blur(16px);box-shadow:0 8px 24px #0006;color:#f3f5fa;font-size:12px;font-weight:500;white-space:nowrap;pointer-events:none;transform:translate(-50%,-100%) scale(.96);opacity:0;transition:opacity .14s,transform .18s cubic-bezier(.34,1.56,.64,1)}
+.device-tip.visible{opacity:1;transform:translate(-50%,-100%) scale(1)}
+.device-tip span{color:#c3cbe0;font-weight:400}
+.device-tip i{width:8px;height:8px;border-radius:50%;background:#ffffff40}
+.device-tip.on i{background:var(--dot);box-shadow:0 0 8px var(--dot)}
+body.control-mode .device-tip{font-size:13px}
+
+/* Fila de lámpara atenuable: el relleno cálido muestra el brillo; se arrastra a los lados. */
+.room-lamp-list button[data-dim]{border-radius:10px;padding-left:8px;padding-right:8px;background:linear-gradient(90deg,#ffcf8f2e calc(var(--level,0) * 100%),transparent calc(var(--level,0) * 100%));cursor:ew-resize;touch-action:pan-y;transition:background .25s}
+.room-lamp-list button[data-dim].dimming{transition:none;background-color:#ffffff0a}

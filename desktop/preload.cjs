@@ -1,0 +1,36 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+// Cada suscripción entrega solo los datos del mensaje y devuelve cómo cancelarla.
+const listen = channel => callback => {
+  const handler = (_event, payload) => callback(payload);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
+};
+
+contextBridge.exposeInMainWorld('habita', {
+  saveProject: (contents) => ipcRenderer.invoke('save-project', contents),
+  openProject: () => ipcRenderer.invoke('open-project'),
+  // Imagen de un plano (PNG o JPG) elegida en el diálogo nativo; vuelve como data URL.
+  openImage: () => ipcRenderer.invoke('open-image'),
+  homeAssistant: {
+    status: () => ipcRenderer.invoke('ha:status'),
+    devices: () => ipcRenderer.invoke('ha:devices'),
+    configure: (url, token) => ipcRenderer.invoke('ha:configure', { url, token }),
+    forget: () => ipcRenderer.invoke('ha:forget'),
+    log: () => ipcRenderer.invoke('ha:log'),
+    setLight: (entityId, state) => ipcRenderer.invoke('ha:set-light', entityId, state),
+    setClimate: (entityId, state) => ipcRenderer.invoke('ha:set-climate', entityId, state),
+    setTv: (entityId, state) => ipcRenderer.invoke('ha:set-tv', entityId, state),
+    setCover: (entityId, state) => ipcRenderer.invoke('ha:set-cover', entityId, state),
+    onStatus: listen('ha:status'),
+    onDevices: listen('ha:devices'),
+    onDevice: listen('ha:device')
+  },
+  // Órdenes de asistentes de IA y del menú de la bandeja; la ventana las resuelve con el proyecto.
+  desktop: {
+    onAiCall: listen('ai:call'),
+    aiReply: (id, reply) => ipcRenderer.send('ai:reply', id, reply),
+    onScene: listen('tray:scene'),
+    setScenes: scenes => ipcRenderer.send('tray:scenes', scenes)
+  }
+});
