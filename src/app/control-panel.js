@@ -10,6 +10,7 @@ import { isLamp, lightFor, lightColor } from '../lighting.js';
 import { isClimate, climateFor, climateModes, fanSpeeds, modeNames, fanNames, modeColors, climateRange } from '../climate.js';
 import { isTv, tvFor } from '../tv.js';
 import { isCover, coverFor } from '../cover.js';
+import { isVacuum, vacuumFor, vacuumNames, vacuumBusy } from '../vacuum.js';
 
 const sceneIcons = ['sun', 'sofa', 'image', 'moon', 'lamp', 'tv'];
 const swatches = ['#ff4d4d', '#ff8c3a', '#ffd23f', '#3ddc84', '#22d3ee', '#3d8bff', '#8b5cf6', '#ff4fa3'];
@@ -17,7 +18,7 @@ const navy = [23, 39, 79];
 const degrees = n => Number(n).toLocaleString('es-CL', { maximumFractionDigits: 1 });
 const hex = rgb => '#' + rgb.map(v => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')).join('');
 const rgbOf = color => [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16));
-const isDevice = item => isLamp(item) || isClimate(item) || isTv(item) || isCover(item);
+const isDevice = item => isLamp(item) || isClimate(item) || isTv(item) || isCover(item) || isVacuum(item);
 
 // Cojín de color: el ancho recorre el tono y la altura lo aclara hacia el blanco.
 function padColor(x, y) {
@@ -109,6 +110,7 @@ export function createControlPanel(ctx) {
     let on, sub, color, kind, level = 0;
     if (isLamp(item)) { const s = lightFor(item); on = lit(item); sub = on ? `${s.brightness}%` : 'Apagada'; color = lightColor(s); kind = 'lamp'; level = on ? s.brightness / 100 : 0; }
     else if (isTv(item)) { const s = tvFor(item); on = s.on; sub = on ? (s.muted ? 'Silenciado' : `Volumen ${s.volume}%`) : 'Apagado'; color = '#8fc3ff'; kind = 'tv'; }
+    else if (isVacuum(item)) { const s = vacuumFor(item); on = vacuumBusy(s); sub = vacuumNames[s.status]; color = '#5be38c'; kind = 'vacuum'; }
     else { const s = coverFor(item); on = s.position > 0; sub = s.position ? `Abierta ${s.position}%` : 'Cerrada'; color = '#cfdcff'; kind = 'curtain'; level = s.position / 100; }
     const real = ctx.devices.describe(item.id);
     if (real && !real.available) sub = 'Sin conexión';
@@ -202,6 +204,15 @@ export function createControlPanel(ctx) {
         ${!sup || sup.volume ? slider('volume', 0, 100, 1, s.volume, 'Volumen', 'volume') : ''}
         ${link}${sources.length ? `<div class="cp-options" style="grid-template-columns:1fr">${option('source', 'Entrada', s.source || 'Elegir', 'input', sources.map(v => [v, v]))}</div>` : ''}`;
     }
+    if (isVacuum(item)) {
+      const s = vacuumFor(item), battery = real?.available ? real.battery : null;
+      const orders = [['cleaning', 'Limpiar', 'vacuum', !sup || sup.start], ['paused', 'Pausar', 'pause', !sup || sup.pause], ['docked', 'A la base', 'home', !sup || sup.dock]].filter(o => o[3]);
+      const pressed = status => status === s.status || (status === 'docked' && s.status === 'returning');
+      return `${head(`${where} · <b>${vacuumNames[s.status]}</b>`, vacuumBusy(s))}
+        ${battery != null ? `<div class="cp-readout">${big(item.id, battery, '% batería', false)}</div>` : ''}
+        <div class="cp-segment cp-vacuum">${orders.map(([status, label, iconName]) => `<button data-vacuum="${status}" aria-pressed="${pressed(status)}">${icon(iconName, 16)} ${label}</button>`).join('')}</div>
+        ${link}`;
+    }
     const s = coverFor(item);
     return `${head(`${where} · <b>${s.position ? `Abierta ${s.position}%` : 'Cerrada'}</b>`, s.position > 0)}
       <div class="cp-readout">${big(item.id, s.position, '%', !s.position)}</div>
@@ -214,6 +225,7 @@ export function createControlPanel(ctx) {
     if (isClimate(item)) return ['climate', { ...climateFor(item), ...patch }];
     if (isLamp(item)) return ['light', { ...lightFor(item), ...patch }];
     if (isTv(item)) return ['tv', { ...tvFor(item), ...patch }];
+    if (isVacuum(item)) return ['vacuum', { ...vacuumFor(item), ...patch }];
     return ['cover', { ...coverFor(item), ...patch }];
   }
   const apply = (item, patch) => save(item, ...next(item, patch));
@@ -222,6 +234,7 @@ export function createControlPanel(ctx) {
     if (isLamp(item)) apply(item, lit(item) ? { on: false } : { on: true, brightness: lightFor(item).brightness || 100 });
     else if (isClimate(item)) apply(item, { on: !climateFor(item).on });
     else if (isTv(item)) apply(item, { on: !tvFor(item).on });
+    else if (isVacuum(item)) apply(item, { status: vacuumBusy(vacuumFor(item)) ? 'docked' : 'cleaning' });
     else apply(item, { position: coverFor(item).position ? 0 : 100 });
     ctx.feedback?.play();
   }
@@ -259,6 +272,7 @@ export function createControlPanel(ctx) {
     card.querySelectorAll('.cp-option').forEach(b => b.onclick = () => openMenu(b, item));
     card.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => apply(item, { on: true, mode: b.dataset.mode }));
     card.querySelectorAll('[data-color]').forEach(b => b.onclick = () => apply(item, { on: true, mode: 'color', color: b.dataset.color }));
+    card.querySelectorAll('[data-vacuum]').forEach(b => b.onclick = () => { if (b.getAttribute('aria-pressed') !== 'true') apply(item, { status: b.dataset.vacuum }); });
     const mute = card.querySelector('[data-mute]');
     if (mute) mute.onclick = () => apply(item, { muted: !tvFor(item).muted });
     card.querySelectorAll('input[type="range"]').forEach(range => {

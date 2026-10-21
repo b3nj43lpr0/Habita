@@ -2,6 +2,7 @@ import { isLamp, lightFor } from '../lighting.js';
 import { isClimate, climateFor, modeNames } from '../climate.js';
 import { isTv, tvFor } from '../tv.js';
 import { isCover, coverFor } from '../cover.js';
+import { isVacuum, vacuumFor, vacuumNames } from '../vacuum.js';
 import { isOpening } from '../catalog.js';
 import { $, esc, toast, modal } from './dom.js';
 import { icon } from './icons.js';
@@ -17,15 +18,15 @@ const statusLabels = {
   error: 'Home Assistant con error',
   disconnected: 'Sin dispositivos'
 };
-const entityPattern = /^(light|switch|climate|media_player|cover|sensor|binary_sensor)\.[a-z0-9_]+$/;
+const entityPattern = /^(light|switch|climate|media_player|cover|vacuum|sensor|binary_sensor)\.[a-z0-9_]+$/;
 
 const cleanError = error => String(error?.message || error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 // Qué tipo de dispositivo real acepta cada objeto de la maqueta.
 // Las puertas y ventanas aceptan un sensor de apertura: solo se leen, nunca se les envían órdenes.
-const kindFor = item => isLamp(item) ? 'light' : isClimate(item) ? 'climate' : isTv(item) ? 'tv' : isCover(item) ? 'cover' : isOpening(item) ? 'contact' : null;
+const kindFor = item => isLamp(item) ? 'light' : isClimate(item) ? 'climate' : isTv(item) ? 'tv' : isCover(item) ? 'cover' : isVacuum(item) ? 'vacuum' : isOpening(item) ? 'contact' : null;
 const liveField = kind => kind;
-const designState = item => isClimate(item) ? climateFor(item) : isTv(item) ? tvFor(item) : isCover(item) ? coverFor(item) : lightFor(item);
-const senders = { light: 'setLight', climate: 'setClimate', tv: 'setTv', cover: 'setCover' };
+const designState = item => isClimate(item) ? climateFor(item) : isTv(item) ? tvFor(item) : isCover(item) ? coverFor(item) : isVacuum(item) ? vacuumFor(item) : lightFor(item);
+const senders = { light: 'setLight', climate: 'setClimate', tv: 'setTv', cover: 'setCover', vacuum: 'setVacuum' };
 // Sensores de habitación: la vinculación usa la clave room:<id>:<medida>.
 const roomKey = (roomId, measure) => `room:${roomId}:${measure}`;
 const measureNames = { temperature: 'Temperatura', humidity: 'Humedad', power: 'Consumo' };
@@ -128,6 +129,10 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
     }
     if (live.kind === 'contact') return live.contact.open ? 'abierta' : 'cerrada';
     if (live.kind === 'cover') return live.cover.position ? `abierta ${live.cover.position}%` : 'cerrada';
+    if (live.kind === 'vacuum') {
+      const battery = live.battery != null ? ` · batería ${live.battery}%` : '';
+      return `${live.error ? 'con error' : vacuumNames[live.vacuum.status]?.toLowerCase() || 'estado desconocido'}${battery}`;
+    }
     if (live.kind === 'tv') {
       if (!live.tv.on) return 'apagado';
       const sound = live.tv.muted ? 'en silencio' : live.tv.volume != null ? `volumen ${live.tv.volume}%` : 'encendido';
@@ -143,7 +148,7 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
     if (status.status !== 'connected') return { entity, available: false, label: 'Sin conexión con la casa' };
     if (!live) return { entity, available: false, label: 'No encontrado en Home Assistant' };
     if (!live.available) return { entity, available: false, label: `${live.name} · no disponible` };
-    return { entity, available: true, label: `${live.name} · ${liveLabel(live)}`, current: live.current ?? null };
+    return { entity, available: true, label: `${live.name} · ${liveLabel(live)}`, current: live.current ?? null, battery: live.battery ?? null };
   }
 
   // Lo que admite el equipo vinculado, para limitar los controles; null si no hay vínculo.
@@ -202,6 +207,7 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
     if (live.kind === 'climate') return '';
     if (live.kind === 'tv') return live.supports.power ? '' : 'Este televisor no se enciende ni apaga desde Home Assistant.';
     if (live.kind === 'cover') return live.supports.position ? '' : 'Este motor solo abre y cierra.';
+    if (live.kind === 'vacuum') return live.supports.start ? '' : 'Esta aspiradora no se puede iniciar desde Home Assistant.';
     if (live.kind !== 'light') return '';
     const light = lightFor(item);
     if (!live.supports.dimmable) return 'Este equipo solo enciende y apaga.';
@@ -216,7 +222,7 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
     const section = document.createElement('div');
     section.className = 'device-link';
     const bound = bindings[item.id];
-    const label = { climate: 'Equipo real', tv: 'Televisor real', light: 'Luz real', cover: 'Cortina real', contact: 'Sensor de apertura' }[kind];
+    const label = { climate: 'Equipo real', tv: 'Televisor real', light: 'Luz real', cover: 'Cortina real', vacuum: 'Aspiradora real', contact: 'Sensor de apertura' }[kind];
     if (!status.configured) {
       section.innerHTML = `<button class="device-connect">${icon('plug', 14)} Controlar un equipo real</button>`;
       section.querySelector('button').onclick = openSettings;
@@ -246,7 +252,7 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
     modal(`
      <span class="dialog-emblem">${icon('plug', 32)}</span>
      <h2>Conectar tu casa real</h2>
-     <p>Habita controla luces, enchufes, aires, televisores, cortinas y sensores a través de <strong>Home Assistant</strong> en tu red local. Después, vincula cada objeto de la maqueta con su equipo real.</p>
+     <p>Habita controla luces, enchufes, aires, televisores, cortinas, aspiradoras y sensores a través de <strong>Home Assistant</strong> en tu red local. Después, vincula cada objeto de la maqueta con su equipo real.</p>
      <form id="ha-form" class="ha-form">
       <label>Dirección de Home Assistant<input id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(status.url || '')}" autocomplete="off" spellcheck="false"></label>
       <label>Token de acceso de larga duración<input id="ha-token" type="password" autocomplete="off" placeholder="${status.configured ? 'Guardado · deja vacío para conservarlo' : 'Pega aquí el token'}"></label>

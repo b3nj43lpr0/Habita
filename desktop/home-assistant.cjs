@@ -1,7 +1,7 @@
 // Cliente de la API WebSocket de Home Assistant. Vive en el proceso principal:
 // el renderer nunca ve el token ni abre conexiones de red.
 const { EventEmitter } = require('node:events');
-const { entityPattern, domainOf, relevant, fromEntity, toService, toClimateCalls, toTvCalls, toCoverCalls, validLightState, validClimateState, validTvState, validCoverState } = require('./ha-mapping.cjs');
+const { entityPattern, domainOf, relevant, fromEntity, toService, toClimateCalls, toTvCalls, toCoverCalls, toVacuumCalls, validLightState, validClimateState, validTvState, validCoverState, validVacuumState } = require('./ha-mapping.cjs');
 
 const reconnectDelays = [1000, 2000, 5000, 10000, 30000];
 const requestTimeout = 10000;
@@ -152,6 +152,12 @@ class HomeAssistantClient extends EventEmitter {
     if (!validCoverState(state)) throw new Error('Estado de cortina inválido.');
     const entity = this.entityFor(entityId, ['cover']);
     for (const { service, data } of toCoverCalls(state, entity)) await this.callService(entityId, 'cover', service, data);
+  }
+
+  async setVacuum(entityId, state) {
+    if (!validVacuumState(state)) throw new Error('Estado de aspiradora inválido.');
+    const entity = this.entityFor(entityId, ['vacuum']);
+    for (const { service, data } of toVacuumCalls(state, entity)) await this.callService(entityId, 'vacuum', service, data);
   }
 
   // Cada orden queda informada (sin token) para el registro de eventos.

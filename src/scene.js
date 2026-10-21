@@ -12,8 +12,9 @@ import { isLamp,lightFor,lightColor } from './lighting.js';
 import { isClimate,climateFor,modeColors } from './climate.js';
 import { createAirflow } from './airflow.js';
 import { isTv,tvFor } from './tv.js';
-import { levelsOf,levelOf,levelElevation,onLevel } from './levels.js';
+import { levelsOf,levelOf,levelElevation,onLevel,inRoom } from './levels.js';
 import { isCover,coverFor } from './cover.js';
+import { isVacuum,vacuumFor } from './vacuum.js';
 
 export function createScene(host, callbacks) {
   const scene=new THREE.Scene();scene.background=viewBackground('cozy');
@@ -33,7 +34,7 @@ export function createScene(host, callbacks) {
   });
   const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.09;controls.maxPolarAngle=Math.PI*.49;controls.minZoom=.3;controls.maxZoom=6;controls.target.set(-.5,0,-.5);
   let focusMotion=null,lightPreviewId=null,climatePreviewId=null;
-  const airflows=new Map();
+  const airflows=new Map(),vacuums=new Map();
   controls.addEventListener('start',()=>{focusMotion=null;});
   controls.mouseButtons.LEFT=THREE.MOUSE.ROTATE;controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
   controls.rotateSpeed=.65;controls.zoomSpeed=.75;controls.panSpeed=.8;
@@ -132,6 +133,7 @@ export function createScene(host, callbacks) {
     for(const item of data.items.filter(i=>isClimate(i)&&shown.has(levelOf(i)))){const before=flowsBefore.get(item.id),flow=createAirflow(item,lift(item),house.children.find(o=>o.userData.itemId===item.id),before);airflows.set(item.id,flow);house.add(flow.group);applyClimateState(item.id,climateFor(item),!before);}
     for(const item of data.items.filter(isTv))applyTvState(item.id,tvFor(item));
     for(const item of data.items.filter(isCover))applyCoverState(item.id,coverFor(item));
+    placeVacuums(data,shown);
     lightPreviewId=climatePreviewId=null;
     setSelection(mode==='walk'?null:id);
   }
@@ -163,6 +165,36 @@ export function createScene(host, callbacks) {
       const k=Math.max(.08,1-state.position/100);child.scale[axis]=k;child.position[axis]=d.edge+(axis==='x'?size*k/2:-size*k/2);
     });
     dirty=true;
+  }
+  // La aspiradora recorre su habitación mientras limpia y vuelve a su lugar (la base) al terminar.
+  // El recorrido es una figura de Lissajous dentro de la habitación; no esquiva muebles.
+  const vacuumLed={cleaning:'#5be38c',returning:'#ffc75a',paused:'#ffc75a',idle:'#9aa5ad',docked:'#5be38c'};
+  function placeVacuums(data,shown){
+    const before=new Map([...vacuums].map(([id,v])=>[id,v.offset]));vacuums.clear();
+    for(const item of data.items.filter(i=>isVacuum(i)&&shown.has(levelOf(i)))){
+      const model=house.children.find(o=>o.userData.itemId===item.id);if(!model)continue;
+      const room=data.rooms.find(r=>inRoom(item,r)),m=Math.max(item.w,item.d)/2+.05;
+      const bounds=room?{x0:room.x-room.w/2+m-item.x,x1:room.x+room.w/2-m-item.x,z0:room.z-room.d/2+m-item.z,z1:room.z+room.d/2-m-item.z}:{x0:-1,x1:1,z0:-1,z1:1};
+      const offset=before.get(item.id)||{x:0,z:0};model.position.x+=offset.x;model.position.z+=offset.z;
+      vacuums.set(item.id,{item,model,bounds,offset,state:vacuumFor(item),heading:item.rotation*Math.PI/180});
+      applyVacuumState(item.id,vacuumFor(item));
+    }
+  }
+  function applyVacuumState(id,state){
+    const v=vacuums.get(id);if(!v)return;v.state=state;
+    v.model.traverse(child=>{if(child.userData.vacuumLed){child.material.emissive.set(vacuumLed[state.status]);child.material.emissiveIntensity=state.status==='docked'?.35:1.2;}});
+    dirty=true;
+  }
+  function moveVacuums(now,dt){
+    for(const v of vacuums.values()){
+      const {status}=v.state,b=v.bounds,o=v.offset;let goal=null;
+      if(status==='cleaning'){const t=now/1000;goal={x:(b.x0+b.x1)/2+(b.x1-b.x0)/2*Math.sin(t*.23),z:(b.z0+b.z1)/2+(b.z1-b.z0)/2*Math.sin(t*.31+1)};}
+      else if(['returning','docked'].includes(status))goal={x:0,z:0};
+      if(!goal)continue;
+      const dx=goal.x-o.x,dz=goal.z-o.z,dist=Math.hypot(dx,dz);if(dist<.002)continue;
+      const step=Math.min(dist,.3*dt);o.x+=dx/dist*step;o.z+=dz/dist*step;v.heading=Math.atan2(dx,dz);
+      v.model.position.x=v.item.x+o.x;v.model.position.z=v.item.z+o.z;v.model.rotation.y=v.heading;dirty=true;
+    }
   }
   function setSelection(id) {
     if(climatePreviewId){const item=project?.items.find(i=>i.id===climatePreviewId);if(item)applyClimateState(item.id,climateFor(item));climatePreviewId=null;}
@@ -265,12 +297,13 @@ export function createScene(host, callbacks) {
     walker.exit();mode=next;camera=orbitCamera;controls.enabled=!callbacks.isDrawing();grid.visible=mode==='2d';
     controls.enableRotate=mode==='3d';composition();camera.position.copy(controls.target).add(mode==='2d'?new THREE.Vector3(0,25,.001):new THREE.Vector3(13,15,17));camera.up.set(0,1,0);controls.update();rebuild(project);softenChange();return true;
   }
-  let lastTime=performance.now();const lastPosition=new THREE.Vector3(),lastRotation=new THREE.Quaternion();
+  let lastTime=performance.now(),vacuumTime=lastTime;const lastPosition=new THREE.Vector3(),lastRotation=new THREE.Quaternion();
   function frame(){requestAnimationFrame(frame);const now=performance.now();walker.update((now-lastTime)/1000);lastTime=now;if(mode!=='walk')controls.update();
     if(focusMotion){const t=Math.min(1,(now-focusMotion.start)/360),ease=1-Math.pow(1-t,3),target=new THREE.Vector3().lerpVectors(focusMotion.from,focusMotion.to,ease),delta=target.sub(controls.target);controls.target.add(delta);camera.position.add(delta);controls.update();dirty=true;if(t===1)focusMotion=null;}
     // El aire se anima aunque Windows tenga las animaciones apagadas: es la señal de que el equipo
     // está funcionando (y muchos equipos las apagan por rendimiento, no por accesibilidad).
     for(const flow of airflows.values())if(flow.active){flow.update(now/1000);dirty=true;}
+    moveVacuums(now,Math.min(.1,(now-vacuumTime)/1000));vacuumTime=now;
     if(dirty||!lastPosition.equals(camera.position)||!lastRotation.equals(camera.quaternion)){
       updateRoomTools();look.render(camera,mode);callbacks.frame?.(camera,host.getBoundingClientRect());lastPosition.copy(camera.position);lastRotation.copy(camera.quaternion);dirty=false;
     }
@@ -281,7 +314,8 @@ export function createScene(host, callbacks) {
     previewLight(id,state){lightPreviewId=id;applyLampState(id,state);},
     previewClimate(id,state){climatePreviewId=id;applyClimateState(id,state);},
     previewCover(id,state){applyCoverState(id,state);},
-    moveItem(item){const model=house.children.find(o=>o.userData.itemId===item.id);if(!model)return;model.position.set(item.x,baseY(item),item.z);model.rotation.y=item.rotation*Math.PI/180;for(const o of house.children.filter(o=>o.userData.lightFor===item.id))o.position.set(item.x,baseY(item)+item.h*.84,item.z);airflows.get(item.id)?.place();setSelection(item.id);},
+    previewVacuum(id,state){applyVacuumState(id,state);},
+    moveItem(item){const model=house.children.find(o=>o.userData.itemId===item.id);if(!model)return;model.position.set(item.x,baseY(item),item.z);model.rotation.y=item.rotation*Math.PI/180;for(const o of house.children.filter(o=>o.userData.lightFor===item.id))o.position.set(item.x,baseY(item)+item.h*.84,item.z);airflows.get(item.id)?.place();const v=vacuums.get(item.id);if(v)v.offset={x:0,z:0};setSelection(item.id);},
     lockWalk(){walker.lock();},
     freeWalk(){walker.free();},
     wallMode(value){wallMode=value;rebuild(project);},

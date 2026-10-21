@@ -180,6 +180,11 @@ ipcMain.handle('ha:set-cover', async (event, entityId, state) => {
   await homeAssistant.setCover(entityId, state);
   return true;
 });
+ipcMain.handle('ha:set-vacuum', async (event, entityId, state) => {
+  trusted(event);
+  await homeAssistant.setVacuum(entityId, state);
+  return true;
+});
 ipcMain.handle('ha:set-tv', async (event, entityId, state) => {
   trusted(event);
   await homeAssistant.setTv(entityId, state);

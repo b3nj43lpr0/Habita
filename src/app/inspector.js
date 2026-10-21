@@ -6,6 +6,7 @@ import { isClimate, climateFor, climateInRoom, modeNames } from '../climate.js';
 import { isTv, tvFor, tvsInRoom } from '../tv.js';
 import { sameLevel } from '../levels.js';
 import { isCover, coverFor, coversInRoom } from '../cover.js';
+import { isVacuum, vacuumFor, vacuumNames, vacuumBusy } from '../vacuum.js';
 import { captureScene, sceneLimit } from '../scenes.js';
 import { thumbnail } from '../furniture.js';
 import { $, esc, fmt, toast, modal } from './dom.js';
@@ -109,9 +110,10 @@ export function createInspector(ctx) {
     const climates = room ? climateInRoom(project, room) : project.items.filter(isClimate);
     const tvs = room ? tvsInRoom(project, room) : project.items.filter(isTv);
     const covers = room ? coversInRoom(project, room) : project.items.filter(isCover);
+    const vacuums = project.items.filter(item => isVacuum(item) && (!room || inRoom(item, room)));
     // Con la casa conectada, la habitación lista sus puertas y ventanas para vincular sensores; la casa completa, solo las vinculadas.
     const openings = project.items.filter(item => isOpening(item) && (room ? inRoom(item, room) && ctx.devices.linkable(item) : ctx.devices.describe(item.id)));
-    if (!lamps.length && !climates.length && !tvs.length && !covers.length && !openings.length) return;
+    if (!lamps.length && !climates.length && !tvs.length && !covers.length && !vacuums.length && !openings.length) return;
     const section = document.createElement('section');
     section.className = 'room-lighting property-section';
     const deviceButton = (item, on, detail) => {
@@ -139,6 +141,9 @@ export function createInspector(ctx) {
      ${covers.length ? `
       <h3 class="climate-heading">Cortinas <span>${covers.filter(i => coverFor(i).position > 0).length}/${covers.length}</span></h3>
       <div class="room-lamp-list">${covers.map(item => deviceButton(item, coverFor(item).position > 0, coverFor(item).position ? `Abierta ${coverFor(item).position}%` : 'Cerrada')).join('')}</div>` : ''}
+     ${vacuums.length ? `
+      <h3 class="climate-heading">Aspiradoras <span>${vacuums.filter(i => vacuumBusy(vacuumFor(i))).length}/${vacuums.length}</span></h3>
+      <div class="room-lamp-list">${vacuums.map(item => deviceButton(item, vacuumBusy(vacuumFor(item)), vacuumNames[vacuumFor(item).status])).join('')}</div>` : ''}
      ${openings.length ? `
       <h3 class="climate-heading">Puertas y ventanas <span>${openings.filter(i => ctx.devices.isOpen(i.id)).length} abiertas</span></h3>
       <div class="room-lamp-list">${openings.map(item => deviceButton(item, ctx.devices.isOpen(item.id), 'Sin sensor')).join('')}</div>` : ''}`;
@@ -163,7 +168,7 @@ export function createInspector(ctx) {
   // Escenas de la casa: guardan el estado de luces, aires y televisores y lo restauran de una vez.
   function mountScenes(container) {
     const { project } = state;
-    const devices = project.items.filter(item => isLamp(item) || isClimate(item) || isTv(item) || isCover(item));
+    const devices = project.items.filter(item => isLamp(item) || isClimate(item) || isTv(item) || isCover(item) || isVacuum(item));
     if (!devices.length) return;
     const scenes = project.scenes || [];
     const section = document.createElement('section');
@@ -172,7 +177,7 @@ export function createInspector(ctx) {
      <h3>Escenas <span>${scenes.length}</span></h3>
      ${scenes.length ? `<div class="scene-buttons">${scenes.map(scene => `
       <div class="scene-row"><button class="scene-activate" data-scene="${esc(scene.id)}">${icon('sun', 14)}<span>${esc(scene.name)}</span></button><button class="scene-delete icon-button" data-delete-scene="${esc(scene.id)}" aria-label="Eliminar escena ${esc(scene.name)}" title="Eliminar escena">${icon('close', 13)}</button></div>`).join('')}</div>`
-      : '<p class="scene-empty">Ajusta las luces, los aires, los televisores y las cortinas como te gusten y guárdalos como una escena.</p>'}
+      : '<p class="scene-empty">Ajusta las luces, los aires, los televisores, las cortinas y las aspiradoras como te gusten y guárdalos como una escena.</p>'}
      <button id="save-scene" class="secondary full" ${scenes.length >= sceneLimit ? 'disabled' : ''}>${icon('plus', 14)} Guardar el estado actual</button>`;
     (container.querySelector('.room-lighting') || container.querySelector('.overview-stats') || container.querySelector('.control-heading')).after(section);
     section.querySelectorAll('[data-scene]').forEach(b => b.onclick = () => activateScene(scenes.find(s => s.id === b.dataset.scene)));

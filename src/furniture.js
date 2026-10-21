@@ -84,6 +84,9 @@ export function furniture(item, preview=false) {
     case 'console':
       box(1,.7,1,0,.5);box(1,.04,1,0,.87,0,wood);for(const x of [-.33,0,.33])box(.3,.5,.02,x,.5,.51,dark);legs(.15,.45,.42);break;
     case 'soundbar':box(1,1,1,0,.5,0);box(.96,.6,.02,0,.5,.51,dark);break;
+    // Aspiradora robot: disco con tapa, parachoques al frente y un piloto que indica su estado.
+    case 'vacuum':cylinder(.5,.5,.8,0,.4,0);cylinder(.4,.4,.12,0,.86,0,dark);box(.62,.5,.1,0,.32,.45,dark);
+      Object.assign(cylinder(.07,.07,.08,0,.94,.22,new THREE.MeshStandardMaterial({color:'#2a3238',emissive:'#5be38c',emissiveIntensity:0,roughness:.3})).userData,{vacuumLed:true});break;
     case 'speaker':box(1,1,1,0,.5);box(.82,.38,.02,0,.7,.51,dark);box(.82,.26,.02,0,.3,.51,dark);break;
     case 'pouf':cylinder(.5,.5,1,0,.5);break;
     case 'bench':box(1,.12,1,0,.9);legs(.84,.44,.4);break;

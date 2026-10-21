@@ -31,6 +31,7 @@ export const catalog = [
   asset('plant-small', 'Planta de interior', 'Decoración', 'plant', .35, .35, .55, '#839267'),
   asset('floor-lamp', 'Lámpara de pie', 'Iluminación', 'lamp', .45, .45, 1.65, '#e0ceb0'),
   asset('lamp', 'Lámpara de mesa', 'Iluminación', 'lamp', .28, .28, .48, '#d9c6a8'),
+  asset('vacuum', 'Aspiradora robot', 'Limpieza', 'vacuum', .35, .35, .1, '#e9ebe8'),
   asset('ac', 'Aire acondicionado', 'Climatización', 'ac', .9, .24, .3, '#eef0ec', [[.8,.22,.28],[.9,.24,.3],[1.05,.25,.32]]),
   // 0.6.0: modelos paramétricos propios (sin archivos externos). El último valor es la altura de montaje.
   asset('tv-wall', 'Televisor de muro', 'Living', 'screen', 1.45, .06, .84, '#2b3138', [[1.12,.06,.65],[1.45,.06,.84],[1.65,.06,.95]], 1),

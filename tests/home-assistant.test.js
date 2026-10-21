@@ -125,7 +125,7 @@ test('el cliente real funciona contra el laboratorio por un WebSocket de verdad'
     const loaded = new Promise(resolve => ha.once('devices', resolve));
     await ha.connect(lab.url, lab.token);
     const lights = await loaded;
-    assert.deepEqual(lights.map(l => l.entityId).sort(), ['binary_sensor.puerta_acceso', 'binary_sensor.ventana_living', 'climate.living', 'cover.dormitorio_persiana', 'cover.living_cortina', 'light.dormitorio', 'light.living_pie', 'light.living_techo', 'light.tira_tv', 'media_player.living_tv', 'sensor.consumo_cocina', 'sensor.consumo_living', 'sensor.humedad_living', 'sensor.temperatura_dormitorio', 'sensor.temperatura_living', 'switch.lampara_enchufe']);
+    assert.deepEqual(lights.map(l => l.entityId).sort(), ['binary_sensor.puerta_acceso', 'binary_sensor.ventana_living', 'climate.living', 'cover.dormitorio_persiana', 'cover.living_cortina', 'light.dormitorio', 'light.living_pie', 'light.living_techo', 'light.tira_tv', 'media_player.living_tv', 'sensor.consumo_cocina', 'sensor.consumo_living', 'sensor.humedad_living', 'sensor.temperatura_dormitorio', 'sensor.temperatura_living', 'switch.lampara_enchufe', 'vacuum.robot_living']);
     assert.deepEqual(lights.find(l => l.entityId === 'light.dormitorio').supports, { color: false, temperature: false, dimmable: true });
 
     const changed = new Promise(resolve => ha.on('device', light => { if (light.entityId === 'light.tira_tv') resolve(light); }));

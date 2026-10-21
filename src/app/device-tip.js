@@ -5,6 +5,7 @@ import { isLamp, lightFor } from '../lighting.js';
 import { isClimate, climateFor, modeNames, modeColors } from '../climate.js';
 import { isTv, tvFor } from '../tv.js';
 import { isCover, coverFor } from '../cover.js';
+import { isVacuum, vacuumFor, vacuumNames, vacuumBusy } from '../vacuum.js';
 
 const degrees = n => `${Number(n).toLocaleString('es-CL', { maximumFractionDigits: 1 })}°`;
 
@@ -14,6 +15,7 @@ export function deviceStatus(item) {
   if (isClimate(item)) { const s = climateFor(item); return [s.on, s.on ? `${modeNames[s.mode]} ${degrees(s.target)}` : 'Apagado', modeColors[s.mode]]; }
   if (isTv(item)) { const s = tvFor(item); return [s.on, s.on ? `Volumen ${s.volume}%` : 'Apagado', '#8fc3ff']; }
   if (isCover(item)) { const s = coverFor(item); return [s.position > 0, s.position ? `Abierta ${s.position}%` : 'Cerrada', '#cfdcff']; }
+  if (isVacuum(item)) { const s = vacuumFor(item); return [vacuumBusy(s), vacuumNames[s.status], '#5be38c']; }
   return null;
 }
 

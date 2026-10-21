@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('habita', {
     setClimate: (entityId, state) => ipcRenderer.invoke('ha:set-climate', entityId, state),
     setTv: (entityId, state) => ipcRenderer.invoke('ha:set-tv', entityId, state),
     setCover: (entityId, state) => ipcRenderer.invoke('ha:set-cover', entityId, state),
+    setVacuum: (entityId, state) => ipcRenderer.invoke('ha:set-vacuum', entityId, state),
     onStatus: listen('ha:status'),
     onDevices: listen('ha:devices'),
     onDevice: listen('ha:device')

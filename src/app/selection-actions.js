@@ -8,6 +8,8 @@ import { isTv, tvFor } from '../tv.js';
 import { mountTvControls } from '../tv-controls.js';
 import { isCover, coverFor } from '../cover.js';
 import { mountCoverControls } from '../cover-controls.js';
+import { isVacuum, vacuumFor } from '../vacuum.js';
+import { mountVacuumControls } from '../vacuum-controls.js';
 import { $, esc } from './dom.js';
 import { icon } from './icons.js';
 
@@ -26,7 +28,7 @@ export function createSelectionActions(ctx) {
 
   function render() {
     const item = selectedItem();
-    bar.classList.toggle('with-light', isLamp(item) || isClimate(item) || isTv(item) || isCover(item) || (!!item && isOpening(item) && ctx.devices.linkable(item)));
+    bar.classList.toggle('with-light', isLamp(item) || isClimate(item) || isTv(item) || isCover(item) || isVacuum(item) || (!!item && isOpening(item) && ctx.devices.linkable(item)));
     // En modo control los equipos se controlan en la hoja del panel, no en la barra.
     bar.hidden = !item || state.view === 'walk' || state.control;
     if (bar.hidden) return;
@@ -45,6 +47,7 @@ export function createSelectionActions(ctx) {
     if (isClimate(item)) mountClimate(item);
     if (isTv(item)) mountTv(item);
     if (isCover(item)) mountCover(item);
+    if (isVacuum(item)) mountVacuum(item);
     if (isOpening(item) && ctx.devices.linkable(item)) mountContact(item);
     if (camera) position(camera, rect);
   }
@@ -131,6 +134,26 @@ export function createSelectionActions(ctx) {
         if (cover.position === coverFor(item).position) return;
         actions.checkpoint();
         item.cover = cover;
+        ctx.devices.send(item);
+        actions.changed();
+      }
+    });
+    ctx.devices.mountLink(panel, item);
+  }
+
+  function mountVacuum(item) {
+    const panel = document.createElement('section');
+    panel.className = 'lamp-controls vacuum-controls';
+    panel.setAttribute('aria-label', 'Aspiradora');
+    bar.append(panel);
+    const info = ctx.devices.describe(item.id);
+    mountVacuumControls(panel, item, {
+      supports: info?.available ? ctx.devices.supportsFor(item.id) : null,
+      battery: info?.available ? info.battery : null,
+      commit: vacuum => {
+        if (vacuum.status === vacuumFor(item).status) return;
+        actions.checkpoint();
+        item.vacuum = vacuum;
         ctx.devices.send(item);
         actions.changed();
       }

@@ -5,18 +5,20 @@ import { isLamp, lightFor, validLight } from './lighting.js';
 import { isClimate, climateFor, validClimate } from './climate.js';
 import { isTv, tvFor, validTv } from './tv.js';
 import { isCover, coverFor, validCover } from './cover.js';
+import { isVacuum, vacuumFor, validVacuum } from './vacuum.js';
 
 export const sceneLimit = 30;
 
 export function captureScene(project, name) {
-  const lights = {}, climates = {}, tvs = {}, covers = {};
+  const lights = {}, climates = {}, tvs = {}, covers = {}, vacuums = {};
   for (const item of project.items) {
     if (isLamp(item)) lights[item.id] = lightFor(item);
     else if (isClimate(item)) climates[item.id] = climateFor(item);
     else if (isTv(item)) tvs[item.id] = tvFor(item);
     else if (isCover(item)) covers[item.id] = coverFor(item);
+    else if (isVacuum(item)) vacuums[item.id] = vacuumFor(item);
   }
-  return { id: crypto.randomUUID(), name, lights, climates, tvs, covers };
+  return { id: crypto.randomUUID(), name, lights, climates, tvs, covers, vacuums };
 }
 
 // Aplica la escena a los objetos que aún existen y devuelve los que cambiaron.
@@ -33,6 +35,10 @@ export function applyScene(project, scene) {
     if (tv && JSON.stringify(tv) !== JSON.stringify(tvFor(item))) { item.tv = { ...tv }; changed.push(item); }
     const cover = isCover(item) && scene.covers?.[item.id];
     if (cover && cover.position !== coverFor(item).position) { item.cover = { ...cover }; changed.push(item); }
+    // Las escenas anteriores a 0.9.0 no tienen aspiradoras. «Volviendo» se pide como «a la base».
+    const vacuum = isVacuum(item) && scene.vacuums?.[item.id];
+    const status = vacuum && (vacuum.status === 'returning' ? 'docked' : vacuum.status);
+    if (vacuum && status !== vacuumFor(item).status && !(status === 'docked' && vacuumFor(item).status === 'returning')) { item.vacuum = { status }; changed.push(item); }
   }
   return changed;
 }
@@ -45,6 +51,6 @@ export function validScenes(scenes) {
     if (!scene || typeof scene.id !== 'string' || ids.has(scene.id) || typeof scene.name !== 'string' || !scene.name.trim() || scene.name.length > 60) return false;
     ids.add(scene.id);
     const entries = (value, valid) => value && typeof value === 'object' && !Array.isArray(value) && Object.entries(value).length <= 1500 && Object.values(value).every(valid);
-    return entries(scene.lights, validLight) && entries(scene.climates, validClimate) && (scene.tvs === undefined || entries(scene.tvs, validTv)) && (scene.covers === undefined || entries(scene.covers, validCover));
+    return entries(scene.lights, validLight) && entries(scene.climates, validClimate) && (scene.tvs === undefined || entries(scene.tvs, validTv)) && (scene.covers === undefined || entries(scene.covers, validCover)) && (scene.vacuums === undefined || entries(scene.vacuums, validVacuum));
   });
 }

@@ -6,9 +6,10 @@
 // TV:    { on, volume 0-100, muted, source '' | nombre de entrada }
 //        ← media_player.* (solo lo que permite supported_features)
 // Cortina: { position 0-100 (100 = abierta) } ← cover.*
+// Aspiradora: { status 'cleaning'|'paused'|'idle'|'returning'|'docked' } ← vacuum.* (más la batería)
 // Solo lectura: sensor.* de temperatura o humedad y binary_sensor.* de puertas y ventanas.
 const colorModes = ['hs', 'xy', 'rgb', 'rgbw', 'rgbww'];
-const entityPattern = /^(light|switch|climate|media_player|cover|sensor|binary_sensor)\.[a-z0-9_]{1,200}$/;
+const entityPattern = /^(light|switch|climate|media_player|cover|vacuum|sensor|binary_sensor)\.[a-z0-9_]{1,200}$/;
 const clamp = n => Math.max(0, Math.min(100, Math.round(n)));
 const domainOf = entityId => entityId.split('.')[0];
 const measures = ['temperature', 'humidity', 'power'];
@@ -29,6 +30,14 @@ function coverCapabilities(attributes = {}) {
   const bits = Number.isInteger(attributes.supported_features) ? attributes.supported_features : 0;
   return { open: (bits & 1) === 1, close: (bits & 2) === 2, position: (bits & 4) === 4 };
 }
+
+// Bits de VacuumEntityFeature: pausar 4, detener 8, volver a la base 16, batería 64, iniciar 8192.
+function vacuumCapabilities(attributes = {}) {
+  const bits = Number.isInteger(attributes.supported_features) ? attributes.supported_features : 0;
+  const has = bit => (bits & bit) === bit;
+  return { start: has(8192), pause: has(4), stop: has(8), dock: has(16), battery: has(64) };
+}
+const vacuumStates = ['cleaning', 'paused', 'idle', 'returning', 'docked'];
 
 // Nombres de Home Assistant para los modos de Habita, en orden de preferencia.
 const hvacNames = { cool: ['cool'], heat: ['heat'], dry: ['dry'], fan: ['fan_only'], auto: ['auto', 'heat_cool'] };
@@ -117,6 +126,12 @@ function fromEntity(entity) {
     const position = typeof attributes.current_position === 'number' ? clamp(attributes.current_position) : ['open', 'opening'].includes(entity.state) ? 100 : 0;
     return { ...base, kind: 'cover', supports: coverCapabilities(attributes), cover: { position } };
   }
+  if (domain === 'vacuum') {
+    // «error» u otro estado desconocido: se informa disponible, pero sin cambiar la maqueta.
+    const vacuum = vacuumStates.includes(entity.state) ? { status: entity.state } : {};
+    const battery = typeof attributes.battery_level === 'number' ? clamp(attributes.battery_level) : null;
+    return { ...base, kind: 'vacuum', supports: vacuumCapabilities(attributes), vacuum, battery, error: entity.state === 'error' };
+  }
   if (domain === 'media_player') {
     const tv = { on: !offStates.includes(entity.state) };
     if (typeof attributes.volume_level === 'number') tv.volume = clamp(attributes.volume_level * 100);
@@ -191,6 +206,24 @@ function toCoverCalls(state, entity) {
   return supports.close && !['closed', 'closing'].includes(entity.state) ? [{ service: 'close_cover', data: {} }] : [];
 }
 
+function validVacuumState(state) {
+  return !!state && typeof state === 'object' && vacuumStates.includes(state.status);
+}
+
+// Una orden por cambio: iniciar, pausar, detener o volver a la base. «Volviendo» y «en la base»
+// piden lo mismo; si el robot ya está en camino o cargando, no se envía nada.
+function toVacuumCalls(state, entity) {
+  const supports = vacuumCapabilities(entity.attributes || {});
+  const now = entity.state;
+  const wanted = state.status === 'returning' ? 'docked' : state.status;
+  if (wanted === now || (wanted === 'docked' && now === 'returning')) return [];
+  const call = { cleaning: ['start', supports.start], paused: ['pause', supports.pause], idle: ['stop', supports.stop], docked: ['return_to_base', supports.dock] }[wanted];
+  if (!call[1]) throw new Error('La aspiradora no admite esa orden.');
+  // Pausar o detener un robot que no está trabajando no hace nada.
+  if (['paused', 'idle'].includes(wanted) && !['cleaning', 'returning'].includes(now)) return [];
+  return [{ service: call[0], data: {} }];
+}
+
 // Solo se envían los atributos que la luz admite; Home Assistant rechaza el resto.
 function toService(state, attributes = {}, domain = 'light') {
   if (!state.on || state.brightness <= 0) return { service: 'turn_off', data: {} };
@@ -231,4 +264,4 @@ function toClimateCalls(state, entity) {
   return calls;
 }
 
-module.exports = { entityPattern, domainOf, relevant, capabilities, climateCapabilities, tvCapabilities, coverCapabilities, fromEntity, toService, toClimateCalls, toTvCalls, toCoverCalls, validLightState, validClimateState, validTvState, validCoverState };
+module.exports = { entityPattern, domainOf, relevant, capabilities, climateCapabilities, tvCapabilities, coverCapabilities, vacuumCapabilities, fromEntity, toService, toClimateCalls, toTvCalls, toCoverCalls, toVacuumCalls, validLightState, validClimateState, validTvState, validCoverState, validVacuumState };

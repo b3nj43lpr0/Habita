@@ -5,6 +5,7 @@ import { validScenes } from './scenes.js';
 import { isTv,validTv } from './tv.js';
 import { validPlan } from './plan.js';
 import { isCover,validCover } from './cover.js';
+import { isVacuum,validVacuum } from './vacuum.js';
 import { validAutomations } from './automations.js';
 import { onLevel,levelOf,levelsOf,validLevels } from './levels.js';
 export const round = n => Math.round(n * 1000) / 1000;
@@ -142,6 +143,7 @@ export function validateProject(input) {
     if(!isRoom&&o.climate!==undefined&&(!isClimate(o)||!validClimate(o.climate)))throw new Error('Configuración de aire acondicionado inválida.');
     if(!isRoom&&o.tv!==undefined&&(!isTv(o)||!validTv(o.tv)))throw new Error('Configuración de televisor inválida.');
     if(!isRoom&&o.cover!==undefined&&(!isCover(o)||!validCover(o.cover)))throw new Error('Configuración de cortina inválida.');
+    if(!isRoom&&o.vacuum!==undefined&&(!isVacuum(o)||!validVacuum(o.vacuum)))throw new Error('Configuración de aspiradora inválida.');
   }
   if(!validScenes(input.scenes)) throw new Error('Escenas inválidas.');
   if(input.plan!==undefined&&!validPlan(input.plan)) throw new Error('Plano de referencia inválido.');

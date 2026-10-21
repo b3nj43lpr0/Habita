@@ -90,6 +90,10 @@ espacios con cuenta, tinte según las luces). Pendiente de la referencia: aspect
 maqueta (paredes oscuras y luces cálidas que iluminan) y muros que se recortan según el ángulo de cámara.
 No adaptado: isla bajo el notch, widgets y app de iPhone (exclusivos de Apple). Plan acordado: 0.9.0 aspiradora, cámaras, paredes en ángulo, cotas y PDF, barrido
 de puertas y circulación; 1.0.0 sol real, exterior, modelos GLB y texturas CC0.
+Avance de 0.9.0: aspiradora robot (`vacuum.*`) en el catálogo, con recorrido animado por su habitación,
+piloto de estado, batería, órdenes limpiar/pausar/a la base según `supported_features`, escenas, panel de
+control y laboratorio. Pendiente de 0.9.0: aspiradora por MCP, cámaras, paredes en ángulo, cotas y PDF,
+barrido de puertas y circulación.
 
 ### Alcance original
 
