@@ -8,6 +8,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      etiqueta:
+        description: 'Etiqueta de un Release existente al que subir los .exe (por ejemplo v0.9.0); vacío para solo compilar'
+        required: false
+        default: ''
 
 jobs:
   windows:
@@ -42,9 +47,10 @@ jobs:
           if-no-files-found: error
 
       - name: Publicar el Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.etiqueta, 'v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.etiqueta || github.ref_name }}
           files: release/*.exe
           body: |
             ## Descargar
