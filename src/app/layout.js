@@ -13,6 +13,7 @@ export function shell(project, version) {
   <div class="header-actions">
    <button id="control-mode" class="icon-button" title="Modo control a pantalla completa" aria-label="Modo control a pantalla completa" aria-pressed="false">${icon('tablet')}</button>
    <button id="home-assistant" class="icon-button" title="Conectar dispositivos reales" aria-label="Conectar dispositivos reales">${icon('plug')}</button>
+   <button id="new-home" class="icon-button" title="Nueva casa" aria-label="Nueva casa">${icon('plus')}</button>
    <button id="open" class="icon-button" title="Abrir proyecto" aria-label="Abrir proyecto">${icon('folder')}</button>
    <button id="help" class="icon-button" title="Cómo usar el editor" aria-label="Cómo usar el editor">${icon('help')}</button>
    <button id="save" class="primary">${icon('save', 16)} Guardar proyecto</button>

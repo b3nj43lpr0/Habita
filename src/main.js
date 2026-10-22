@@ -15,6 +15,7 @@ import { baseLevel, levelLimit, levelsOf, levelOf, onLevel, sameLevel } from './
 import { roomCandidate, roomEditError, applyRoomEdit } from './room-edit.js';
 import { createAmbienceUI } from './ambience-ui.js';
 import { createDimensions } from './app/dimensions.js';
+import { templates, templatePreview } from './templates.js';
 import { createFeedback } from './interaction-feedback.js';
 import { $, esc, fmt, toast, modal, download, scrollHints } from './app/dom.js';
 import { icon } from './app/icons.js';
@@ -631,6 +632,34 @@ function loadProject(text) {
     toast(error.message || 'No pudimos abrir el proyecto.');
   }
 }
+
+// Nueva casa desde una plantilla. Reemplazar la casa es un paso de Deshacer, como abrir un archivo.
+function newHome() {
+  modal(`
+   <h2>Nueva casa</h2>
+   <p>Elige cómo empezar. La casa actual se recupera con Deshacer; si quieres conservarla en un archivo, guárdala antes.</p>
+   <div class="template-grid">${templates.map(t => `<button class="template-card" data-template="${t.id}">${templatePreview(t.make())}<strong>${esc(t.name)}</strong><small>${esc(t.detail)}</small></button>`).join('')}</div>
+   <div class="dialog-actions"><button data-close class="secondary">Cancelar</button></div>`, () => {
+    document.querySelectorAll('[data-template]').forEach(button => button.onclick = () => {
+      const template = templates.find(t => t.id === button.dataset.template);
+      $('#dialog').close();
+      checkpoint();
+      state.project = validateProject(template.make());
+      state.selected = null;
+      state.selection = [];
+      state.level = baseLevel;
+      $('#project-name').value = state.project.name;
+      stopDrawing();
+      changed();
+      ctx.scene.setLevel(state.level);
+      ctx.scene.fit();
+      library.render();
+      if (!state.project.rooms.length) $('[data-tab="rooms"]').click();
+      toast(state.project.rooms.length ? `«${template.name}» lista para personalizar.` : 'Plano vacío: usa «Dibujar habitación» para crear tus espacios.', { label: 'Deshacer', run: () => undo() });
+    });
+  });
+}
+$('#new-home').onclick = newHome;
 
 $('#save').onclick = async () => {
   try {
