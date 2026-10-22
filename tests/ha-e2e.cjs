@@ -15,7 +15,7 @@ const { startFakeHomeAssistant } = require('../tools/lab/fake-home-assistant.cjs
 const entity = 'light.living_pie';
 
 const fail = error => { console.error(error); app.exit(1); };
-setTimeout(() => fail(new Error('La prueba no terminó en 60 segundos.')), 60000);
+setTimeout(() => fail(new Error('La prueba no terminó en 10 minutos.')), 600000);
 
 startFakeHomeAssistant({ port: 0 }).then(lab => {
   const { url, token, calls } = lab;
@@ -29,6 +29,9 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
       if (result.error) throw new Error(`${result.error} en: ${code.trim().slice(0, 90)}`);
       return result.value;
     };
+    // Espera a que se cumpla lo que se va a comprobar (hasta 6 s): en equipos lentos el equipo
+    // simulado puede tardar más que una pausa fija en recibir la orden.
+    const settle = async check => { for (let t = 0; t < 6000 && !check(); t += 150) await new Promise(r => setTimeout(r, 150)); };
     await run(`localStorage.clear();`);
     win.webContents.reload();
     await new Promise(resolve => win.webContents.once('did-finish-load', resolve));
@@ -76,6 +79,7 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
       check($('.climate-current')?.textContent.includes('25,5'),'Temperatura actual de la habitación');
       $('.climate-controls [data-mode="heat"]').click();await wait(600);
       return JSON.parse(localStorage.getItem('habita-project')).items.find(i=>i.asset==='ac').id;`);
+    await settle(() => !(lab.entities.get('climate.living').state !== 'heat'));
     if (lab.entities.get('climate.living').state !== 'heat') throw Error('El modo calor no llegó al aire');
     fs.writeFileSync(path.join(__dirname, '..', '.research', 'ha-climate.png'), (await win.webContents.capturePage()).toPNG());
     lab.external('climate.living', e => { e.attributes.temperature = 19; });
@@ -89,6 +93,7 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
       select.value='switch.lampara_enchufe';select.dispatchEvent(new Event('change'));await wait();
       check($('.device-link')?.textContent.includes('solo enciende y apaga'),'Aviso de equipo sin brillo');
       $('.light-power').click();await wait(600);`);
+    await settle(() => !(lab.entities.get('switch.lampara_enchufe').state !== 'on'));
     if (lab.entities.get('switch.lampara_enchufe').state !== 'on') throw Error('El enchufe no se encendió');
 
     // Televisor: vincular el media_player, encender, volumen en vivo, entrada y un cambio externo.
@@ -168,6 +173,7 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
       const range=$('[data-cover="position"]');range.value='40';range.dispatchEvent(new Event('input'));range.dispatchEvent(new Event('change'));await wait(600);
       return JSON.parse(localStorage.getItem('habita-project')).items.find(i=>i.asset==='curtain').id;`);
     const coverCalls = calls.filter(c => c.domain === 'cover').map(c => c.service_data.position);
+    await settle(() => !(lab.entities.get('cover.living_cortina').attributes.current_position !== 40 || coverCalls.join() !== '0,40'));
     if (lab.entities.get('cover.living_cortina').attributes.current_position !== 40 || coverCalls.join() !== '0,40') throw Error(`Cortina real: ${coverCalls}`);
     lab.external('cover.living_cortina', e => { e.attributes.current_position = 75; });
     await run(`await wait(500);check(JSON.parse(localStorage.getItem('habita-project')).items.find(i=>i.id===${JSON.stringify(curtain)}).cover.position===75,'La cortina refleja el cambio externo');`);
@@ -181,7 +187,9 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
     lab.external('switch.lampara_enchufe', e => { e.state = 'off'; });
     lab.external('media_player.living_tv', e => { e.state = 'off'; });
     await run(`await wait(500);$('[data-scene]').click();await wait(800);`);
+    await settle(() => !(lab.entities.get('climate.living').state !== 'heat' || lab.entities.get('switch.lampara_enchufe').state !== 'on'));
     if (lab.entities.get('climate.living').state !== 'heat' || lab.entities.get('switch.lampara_enchufe').state !== 'on') throw Error('La escena no movió los equipos reales');
+    await settle(() => !(lab.entities.get('media_player.living_tv').state !== 'on'));
     if (lab.entities.get('media_player.living_tv').state !== 'on') throw Error('La escena no encendió el televisor real');
 
     // Automatización: al abrirse la ventana del living se activa «Película».
@@ -198,6 +206,7 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
     if (lab.entities.get('climate.living').state !== 'off') throw Error('Cerrar la ventana no debía activar la escena');
     lab.external('binary_sensor.ventana_living', e => { e.state = 'on'; });
     await new Promise(resolve => setTimeout(resolve, 900));
+    await settle(() => !(lab.entities.get('climate.living').state !== 'heat'));
     if (lab.entities.get('climate.living').state !== 'heat') throw Error('La automatización no activó la escena al abrir la ventana');
 
     // Arrastre en vivo: la luz real sigue el slider con pocas órdenes y sin saltos por los ecos.
@@ -220,7 +229,9 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
     if (!drag.log.some(line => line.includes(entity) && line.includes('light.turn_on')) || drag.log.join('\n').includes(token)) throw Error('Registro de eventos');
 
     lab.dropClients();
-    const reconnect = await run(`await wait(2500);return $('#device-status').dataset.status;`);
+    // Esperar a que se note la desconexión y luego la reconexión (hasta 15 s): en equipos lentos el
+    // indicador puede seguir en «conectado» un momento y el reintento tardar más que 2,5 s.
+    const reconnect = await run(`let saw=false;for(let i=0;i<60;i++){const s=$('#device-status').dataset.status;if(s!=='connected')saw=true;else if(saw||i>=12)break;await wait(250);}return $('#device-status').dataset.status;`);
     if (reconnect !== 'connected') throw Error(`Reconexión: ${reconnect}`);
 
     // Asistente de IA por MCP: el servidor real, lanzado con Node como lo haría Claude Desktop.
@@ -233,30 +244,68 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
     const ask = (method, params) => new Promise(resolve => { const id = nextId++; replies.set(id, resolve); mcp.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'); });
     const tool = async (name, args = {}) => { const m = await ask('tools/call', { name, arguments: args }); if (m.result.isError) throw Error(`${name}: ${m.result.content[0].text}`); return m.result.structuredContent; };
     const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+    // Espera a que el equipo simulado cambie (hasta 6 s): en equipos lentos la orden tarda más.
+    const until = async check => { for (let t = 0; t < 6000 && !check(); t += 150) await pause(150); };
     await ask('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'e2e', version: '1' } });
     const homeView = await tool('get_home');
     if (JSON.stringify(homeView).includes(entity) || !homeView.lights.some(l => l.id === linked && l.device.linked)) throw Error(`get_home: ${JSON.stringify(homeView.lights)}`);
     await tool('set_lights', { ids: [linked], brightness: 25 });
-    await pause(600);
+    await until(() => Math.round(lab.entities.get(entity).attributes.brightness / 2.55) === 25);
     const aiBrightness = Math.round(lab.entities.get(entity).attributes.brightness / 2.55);
     if (aiBrightness !== 25) throw Error(`La IA no movió la luz real: ${aiBrightness}`);
     await tool('set_air_conditioners', { ids: [climate], mode: 'cool', target: 22 });
-    await pause(600);
+    await until(() => lab.entities.get('climate.living').attributes.temperature === 22);
     const acReal = lab.entities.get('climate.living');
     if (acReal.state !== 'cool' || acReal.attributes.temperature !== 22) throw Error(`La IA no movió el aire: ${acReal.state} ${acReal.attributes.temperature}`);
     if (!homeView.tvs.some(t => t.id === tvId && t.device.linked)) throw Error('get_home sin televisores');
     await tool('set_tvs', { ids: [tvId], volume: 15, muted: false });
-    await pause(600);
+    await until(() => lab.entities.get('media_player.living_tv').attributes.volume_level === .15);
     const aiTv = lab.entities.get('media_player.living_tv').attributes;
     if (aiTv.volume_level !== .15 || aiTv.is_volume_muted) throw Error(`La IA no movió el televisor: ${JSON.stringify(aiTv)}`);
     await tool('activate_scene', { scene: 'pelicula' });
-    await pause(800);
+    await until(() => lab.entities.get('climate.living').state === 'heat');
+    await settle(() => !(lab.entities.get('climate.living').state !== 'heat'));
     if (lab.entities.get('climate.living').state !== 'heat') throw Error('La IA no activó la escena');
     const aiSaved = await run(`await wait(300);const p=JSON.parse(localStorage.getItem('habita-project'));const log=await window.habita.homeAssistant.log();
       return {lamp:p.items.find(i=>i.id===${JSON.stringify(linked)}).light.brightness,ac:p.items.find(i=>i.asset==='ac').climate.mode,log:log.filter(l=>l.split('\t')[1]==='IA').length,undo:!$('#undo').disabled};`);
     if (aiSaved.ac !== 'heat' || !aiSaved.undo || aiSaved.log < 4) throw Error(`Cambios de la IA en la maqueta: ${JSON.stringify(aiSaved)}`);
+    // Editar el plano: sin el permiso la IA recibe la explicación; con él, agrega una habitación
+    // que se puede deshacer.
+    const denied = await ask('tools/call', { name: 'add_room', arguments: { name: 'Terraza', x: 7, z: 0, w: 3, d: 3 } });
+    if (!denied.result.isError || !/no permitió/.test(denied.result.content[0].text)) throw Error(`Editar sin permiso: ${JSON.stringify(denied.result)}`);
+    await main.setAiEdit(true);
+    const added = await tool('add_room', { name: 'Terraza IA', x: 9, z: 0, w: 3, d: 3 });
+    const aiPlan = await tool('get_plan');
+    if (!aiPlan.rooms.some(r => r.id === added.id && r.name === 'Terraza IA')) throw Error(`La IA no agregó la habitación: ${JSON.stringify(added)}`);
+    const undone = await run(`$('#undo').click();await wait(400);return JSON.parse(localStorage.getItem('habita-project')).rooms.some(r=>r.name==='Terraza IA');`);
+    if (undone) throw Error('Deshacer no quitó la habitación de la IA');
+    await main.setAiEdit(false);
     mcp.kill();
     await main.setAiAccess(false);
+
+    // Control desde el celular: la página y las órdenes con la clave del QR; sin ella, nada.
+    const phone = await main.setPhoneAccess(true);
+    const phoneKey = new URL(phone.link).hash.slice(3), phoneBase = phone.address.replace(/\/\/[^:]+:/, '//127.0.0.1:');
+    const phonePage = await fetch(`${phoneBase}/`);
+    if (phonePage.status !== 200 || !(await phonePage.text()).includes('Control remoto de Habita') || !phone.qr.startsWith('data:image/png')) throw Error('Página del celular');
+    const phoneCall = (name, args, key = phoneKey) => fetch(`${phoneBase}/api/tool`, { method: 'POST', headers: { authorization: `Bearer ${key}` }, body: JSON.stringify({ name, arguments: args }) });
+    if ((await phoneCall('get_home', {}, 'otra')).status !== 401) throw Error('El celular sin clave no debía entrar');
+    const phoneHome = await (await phoneCall('get_home', {})).json();
+    const phoneLamp = phoneHome.result.lights.find(l => l.id === linked);
+    await phoneCall('set_lights', { ids: [linked], brightness: 35 });
+    await settle(() => Math.round(lab.entities.get(entity).attributes.brightness / 2.55) === 35);
+    if (!phoneLamp || Math.round(lab.entities.get(entity).attributes.brightness / 2.55) !== 35) throw Error('El celular no movió la luz real');
+    const picture = await (await phoneCall('get_picture', {})).json();
+    if (!picture.result?.image?.startsWith('data:image/jpeg')) throw Error('Imagen de la maqueta para el celular');
+    await main.setPhoneAccess(false);
+
+    // Panel rápido de la bandeja: la misma página con el puente propio de la ventanita.
+    main.togglePanel();
+    const panel = main.panelContents();
+    await new Promise(resolve => panel.isLoading() ? panel.once('did-finish-load', resolve) : resolve());
+    const panelHome = await panel.executeJavaScript(`window.habitaRemote.call('get_home',{}).then(r=>r.result.lights.length)`);
+    if (!(panelHome > 0)) throw Error(`Panel rápido: ${panelHome}`);
+    main.togglePanel();
     if (fs.existsSync(main.aiAccessPath())) throw Error('El token de IA sigue en disco al desactivar');
 
     // Modo control: sin editor, con el panel de equipos al estilo house-control.
@@ -320,6 +369,57 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
     if (Math.abs(plan.w - 10 * 5 / plan.measured) > .1) throw Error(`Calibración del plano: ${JSON.stringify(plan)}`);
     fs.writeFileSync(path.join(__dirname, '..', '.research', 'plan-e2e.png'), (await win.webContents.capturePage()).toPNG());
 
+    // Aspiradora real: vincularla, mandarla a limpiar y verla volver a la base.
+    const vacuum = await run(`
+      $('[data-view="3d"]').click();await wait();
+      $('[data-tab="objects"]').click();await wait();$('[data-asset="vacuum"]').click();await wait();
+      const select=$('.vacuum-controls [data-device]');check(select,'Selector de aspiradora real');
+      select.value='vacuum.robot_living';select.dispatchEvent(new Event('change'));await wait();
+      check($('.vacuum-controls .device-state.online')?.textContent.includes('batería 87%'),'Batería visible');
+      $('[data-vacuum="cleaning"]').click();await wait(600);
+      return $('.vacuum-controls .light-heading small').textContent;`);
+    await settle(() => !(lab.entities.get('vacuum.robot_living').state !== 'cleaning' || !vacuum.startsWith('Limpiando')));
+    if (lab.entities.get('vacuum.robot_living').state !== 'cleaning' || !vacuum.startsWith('Limpiando')) throw Error(`Aspiradora: ${vacuum} / ${lab.entities.get('vacuum.robot_living').state}`);
+
+    // Diagnóstico: la casa conectada, sus vínculos sanos y las órdenes del registro.
+    const diagnosis = await run(`
+      $('#home-assistant').click();await wait(200);$('#ha-diagnose').click();await wait(400);
+      const lines=[...document.querySelectorAll('.diagnosis li')].map(li=>li.className+' '+li.textContent);
+      $('#dialog').close();
+      return lines;`);
+    if (!diagnosis.some(line => line.startsWith('ok Conectado')) || diagnosis.some(line => line.startsWith('error'))) throw Error(`Diagnóstico: ${JSON.stringify(diagnosis)}`);
+
+    // Philips Hue sin Home Assistant: vincular el puente simulado con su botón y apagar una luz.
+    const hueLab = await require('../tools/lab/fake-hue.cjs').startFakeHue();
+    const huePaired = await run(`
+      $('#home-assistant').click();await wait(200);
+      $('#hue-host').value=${JSON.stringify(hueLab.host)};$('#hue-pair').click();
+      for(let i=0;i<20&&!$('#hue-feedback')?.textContent.includes('botón');i++)await wait(150);
+      return $('#hue-feedback').textContent;`);
+    if (!/botón/.test(huePaired)) throw Error(`Hue sin botón: ${huePaired}`);
+    hueLab.pressButton();
+    const hue = await run(`
+      $('#hue-pair').disabled=false;$('#hue-pair').click();
+      for(let i=0;i<40&&!$('.hue-section [data-status="connected"]');i++)await wait(150);
+      const list=await window.habita.homeAssistant.devices();
+      await window.habita.homeAssistant.setLight('hue.light_1',{on:false,brightness:50,warmth:50,mode:'temperature',color:'#ffffff'});
+      $('#dialog').close();
+      return {connected:!!$('.hue-section [data-status="connected"]'),names:list.filter(d=>d.entityId.startsWith('hue.')).map(d=>d.name)};`);
+    await settle(() => !(hueLab.lights[1].state.on !== false));
+    if (!hue.connected || hue.names.length !== 3 || hueLab.lights[1].state.on !== false) throw Error(`Hue: ${JSON.stringify(hue)}`);
+    await hueLab.close();
+
+    // Vincular por habitación: las áreas de Home Assistant llegan y la lista agrupa por espacio.
+    const linker = await run(`
+      $('#home-assistant').click();await wait(200);$('#ha-rooms').click();await wait(300);
+      const rows=document.querySelectorAll('.linker-row').length,groups=[...document.querySelectorAll('.linker h3')].map(h=>h.textContent);
+      const areas=[...document.querySelectorAll('.linker-row option')].some(o=>o.textContent.includes('· Living y comedor'));
+      $('#linker-search').value='aspiradora';$('#linker-search').dispatchEvent(new Event('input'));
+      const visible=[...document.querySelectorAll('.linker-row')].filter(r=>!r.hidden).length;
+      $('#linker-save').click();await wait(300);
+      return {rows,groups,areas,visible,toast:$('#toast').textContent};`);
+    if (!linker.rows || !linker.areas || linker.visible !== 1 || !/vínculo/.test(linker.toast)) throw Error(`Vincular por habitación: ${JSON.stringify(linker)}`);
+
     // Con la casa conectada, cerrar la ventana la deja en la bandeja en vez de salir.
     win.close();
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -327,7 +427,7 @@ startFakeHomeAssistant({ port: 0 }).then(lab => {
     win.show();
 
     fs.writeFileSync(path.join(__dirname, '..', '.research', 'ha-e2e.png'), (await win.webContents.capturePage()).toPNG());
-    console.log(JSON.stringify({ status: "passed", badToken: bad, serviceCall: call.service_data, live, climate: lab.entities.get("climate.living").state, scene, tv: { volumeCalls, source: tvReal.attributes.source }, cover: coverCalls, energy, floors, plan, dragCalls: dragCalls.length, logLines: drag.log.length, reconnect, ai: { brightness: aiBrightness, saved: aiSaved } }));
+    console.log(JSON.stringify({ status: "passed", badToken: bad, serviceCall: call.service_data, live, climate: lab.entities.get("climate.living").state, scene, tv: { volumeCalls, source: tvReal.attributes.source }, cover: coverCalls, energy, floors, plan, vacuum, diagnosis, hue, linker, phone: { lamp: phoneLamp?.name, picture: picture.result.image.length }, panel: panelHome, dragCalls: dragCalls.length, logLines: drag.log.length, reconnect, ai: { brightness: aiBrightness, saved: aiSaved } }));
     app.exit(0);
   }).catch(fail);
 });

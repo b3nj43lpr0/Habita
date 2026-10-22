@@ -7,6 +7,9 @@ import { isOpening } from '../catalog.js';
 import { $, esc, toast, modal } from './dom.js';
 import { icon } from './icons.js';
 import { createOutbox } from './outbox.js';
+import { diagnose } from '../diagnostics.js';
+import { suggestLinks } from '../link-suggest.js';
+import { inRoom } from '../levels.js';
 
 // Las vinculaciones objeto → dispositivo viven fuera del proyecto: no entran al archivo
 // .habita, al historial ni al autoguardado, y no contienen credenciales.
@@ -18,7 +21,7 @@ const statusLabels = {
   error: 'Home Assistant con error',
   disconnected: 'Sin dispositivos'
 };
-const entityPattern = /^(light|switch|climate|media_player|cover|vacuum|sensor|binary_sensor)\.[a-z0-9_]+$/;
+const entityPattern = /^(light|switch|climate|media_player|cover|vacuum|sensor|binary_sensor|hue)\.[a-z0-9_]+$/;
 
 const cleanError = error => String(error?.message || error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 // Qué tipo de dispositivo real acepta cada objeto de la maqueta.
@@ -141,11 +144,14 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
     return live.light.on ? 'encendida' : 'apagada';
   }
 
+  // Las luces Hue dependen de su puente; el resto, de Home Assistant.
+  const online = entity => entity?.startsWith('hue.') ? status.hue?.status === 'connected' : status.status === 'connected' && (!status.hue?.paired || !!status.url || status.hue.status === 'connected');
+
   function describe(itemId) {
     const entity = bindings[itemId];
     if (!entity) return null;
     const live = devices.get(entity);
-    if (status.status !== 'connected') return { entity, available: false, label: 'Sin conexión con la casa' };
+    if (!online(entity)) return { entity, available: false, label: entity.startsWith('hue.') ? 'Sin conexión con el puente Hue' : 'Sin conexión con la casa' };
     if (!live) return { entity, available: false, label: 'No encontrado en Home Assistant' };
     if (!live.available) return { entity, available: false, label: `${live.name} · no disponible` };
     return { entity, available: true, label: `${live.name} · ${liveLabel(live)}`, current: live.current ?? null, battery: live.battery ?? null };
@@ -164,8 +170,8 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
     previewing.delete(item.id);
     const to = target(item);
     if (!to) return;
-    if (status.status !== 'connected') {
-      toast(`Home Assistant no está conectado: ${to.name} no cambió. La maqueta sí.`);
+    if (!online(to.entity)) {
+      toast(`${to.entity.startsWith('hue.') ? 'El puente Hue' : 'Home Assistant'} no está conectado: ${to.name} no cambió. La maqueta sí.`);
       return;
     }
     // Optimista: el cambio del usuario manda hasta que la casa confirme o informe otro estado.
@@ -178,7 +184,7 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
   // aires no: cada orden les hace sonar un pitido, así que solo reciben el valor final al soltar.
   function preview(item, value) {
     const to = target(item);
-    if (!to || !['light', 'tv'].includes(to.kind) || status.status !== 'connected') return;
+    if (!to || !['light', 'tv'].includes(to.kind) || !online(to.entity)) return;
     previewing.add(item.id);
     outbox.dispatch(to.entity, value, to);
   }
@@ -254,17 +260,70 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
      <h2>Conectar tu casa real</h2>
      <p>Habita controla luces, enchufes, aires, televisores, cortinas, aspiradoras y sensores a través de <strong>Home Assistant</strong> en tu red local. Después, vincula cada objeto de la maqueta con su equipo real.</p>
      <form id="ha-form" class="ha-form">
-      <label>Dirección de Home Assistant<input id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(status.url || '')}" autocomplete="off" spellcheck="false"></label>
+      <label>Dirección de Home Assistant<span class="ha-url-row"><input id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(status.url || '')}" autocomplete="off" spellcheck="false"><button type="button" id="ha-discover" class="secondary">Buscar en la red</button></span></label>
+      <div id="ha-found" class="ha-found" hidden></div>
       <label>Token de acceso de larga duración<input id="ha-token" type="password" autocomplete="off" placeholder="${status.configured ? 'Guardado · deja vacío para conservarlo' : 'Pega aquí el token'}"></label>
       <small>Créalo en Home Assistant: tu perfil → Seguridad → Tokens de acceso de larga duración. Se guarda cifrado con tu cuenta de Windows y nunca entra a los archivos .habita.</small>
       <p id="ha-feedback" class="ha-feedback" data-status="${esc(status.status)}">${esc(status.message || statusLabels[status.status])}${status.status === 'connected' ? ` · ${found()}` : ''}</p>
       <div class="dialog-actions">
-       ${status.configured ? '<button type="button" id="ha-forget" class="danger">Olvidar conexión</button><button type="button" id="ha-log" class="secondary">Ver registro</button>' : ''}
+       ${status.configured ? '<button type="button" id="ha-forget" class="danger">Olvidar conexión</button><button type="button" id="ha-log" class="secondary">Ver registro</button><button type="button" id="ha-diagnose" class="secondary">Diagnóstico</button>' : ''}
+       ${status.status === 'connected' ? '<button type="button" id="ha-rooms" class="secondary">Vincular por habitación</button>' : ''}
+       ${window.habita?.desktop?.phone ? '<button type="button" id="ha-phone" class="secondary">Control desde el celular</button>' : ''}
        <button type="button" data-close class="secondary">Cerrar</button>
        <button type="submit" class="primary">Conectar</button>
       </div>
-     </form>`, () => {
+     </form>
+     <section class="hue-section">
+      <h3>Philips Hue sin Home Assistant</h3>
+      ${status.hue?.paired
+        ? `<p class="ha-feedback" data-status="${esc(status.hue.status)}">Puente ${esc(status.hue.host)} · ${esc(status.hue.message || statusLabels[status.hue.status] || '')}</p><div class="dialog-actions"><button type="button" id="hue-forget" class="danger">Olvidar puente</button></div>`
+        : `<p>Si tus luces son Hue, Habita puede usarlas directo desde el puente en tu red.</p>
+         <div class="ha-url-row"><input id="hue-host" placeholder="Dirección del puente, por ejemplo 192.168.1.30" autocomplete="off" spellcheck="false" aria-label="Dirección del puente Hue"><button type="button" id="hue-discover" class="secondary">Buscar</button></div>
+         <p id="hue-feedback" class="ha-feedback"></p>
+         <div class="dialog-actions"><button type="button" id="hue-pair" class="primary">Pulsé el botón · Vincular</button></div>`}
+     </section>`, () => {
       const feedback = $('#ha-feedback');
+      // Buscar Home Assistant: con uno solo se completa la dirección; con varios, se elige.
+      $('#ha-discover').onclick = async () => {
+        const button = $('#ha-discover'), list = $('#ha-found');
+        button.disabled = true; button.textContent = 'Buscando…';
+        let found = [];
+        try { found = await bridge.discover(); } catch {}
+        button.disabled = false; button.textContent = 'Buscar en la red';
+        if (found.length === 1) { $('#ha-url').value = found[0].url; list.hidden = true; feedback.textContent = `Encontrado: ${found[0].name}. Pega el token y conecta.`; return; }
+        list.hidden = false;
+        list.innerHTML = found.length ? found.map(f => `<button type="button" data-url="${esc(f.url)}">${esc(f.name)}<small>${esc(f.url)}</small></button>`).join('') : '<p>No apareció Home Assistant en esta red. Escribe su dirección; suele ser http://homeassistant.local:8123 o la IP del equipo con :8123.</p>';
+        list.querySelectorAll('[data-url]').forEach(b => b.onclick = () => { $('#ha-url').value = b.dataset.url; list.hidden = true; });
+      };
+      const hueFeedback = $('#hue-feedback');
+      const hueDiscover = $('#hue-discover');
+      if (hueDiscover) hueDiscover.onclick = async () => {
+        hueDiscover.disabled = true;
+        let found = [];
+        try { found = await bridge.discoverHue(); } catch {}
+        hueDiscover.disabled = false;
+        if (found.length) { $('#hue-host').value = found[0].host; hueFeedback.textContent = `Puente encontrado${found.length > 1 ? ` (${found.length})` : ''}. Pulsa el botón redondo del puente y luego «Vincular».`; }
+        else hueFeedback.textContent = 'No apareció un puente Hue. Escribe su IP (está en la app Hue → Configuración → Puentes).';
+      };
+      const huePair = $('#hue-pair');
+      if (huePair) huePair.onclick = async () => {
+        huePair.disabled = true;
+        hueFeedback.dataset.status = 'connecting';
+        hueFeedback.textContent = 'Vinculando…';
+        try {
+          status = await bridge.pairHue($('#hue-host').value);
+          await refreshDevices();
+          paintStatus();
+          openSettings();
+          toast('Puente Hue vinculado. Elige una lámpara de la maqueta para vincular sus luces.');
+        } catch (error) {
+          hueFeedback.dataset.status = 'error';
+          hueFeedback.textContent = cleanError(error);
+          huePair.disabled = false;
+        }
+      };
+      const hueForget = $('#hue-forget');
+      if (hueForget) hueForget.onclick = async () => { status = await bridge.forgetHue(); await refreshDevices(); paintStatus(); openSettings(); };
       $('#ha-form').onsubmit = async event => {
         event.preventDefault();
         const submit = event.target.querySelector('[type="submit"]');
@@ -286,6 +345,12 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
       };
       const log = $('#ha-log');
       if (log) log.onclick = showLog;
+      const check = $('#ha-diagnose');
+      if (check) check.onclick = showDiagnosis;
+      const rooms = $('#ha-rooms');
+      if (rooms) rooms.onclick = showRoomLinker;
+      const phoneButton = $('#ha-phone');
+      if (phoneButton) phoneButton.onclick = () => ctx.phone?.open();
       const forget = $('#ha-forget');
       if (forget) forget.onclick = async () => {
         status = await bridge.forget();
@@ -362,6 +427,79 @@ export function createDevices(ctx, { onLiveChange, onContact = () => {} }) {
      ${rows ? `<ol class="event-log">${rows}</ol>` : '<p class="scene-empty">Todavía no hay eventos.</p>'}
      <div class="dialog-actions"><button type="button" id="log-back" class="secondary">Volver</button><button type="button" data-close class="primary">Cerrar</button></div>`, () => {
       $('#log-back').onclick = openSettings;
+    });
+  }
+
+  // Todos los equipos de la maqueta por habitación, cada uno con su selector de dispositivo real.
+  // Los que no tienen vínculo traen marcada la propuesta (misma área o nombre parecido); nada se
+  // guarda hasta pulsar «Guardar vínculos».
+  function showRoomLinker() {
+    const suggested = suggestLinks(state.project, [...devices.values()], kindFor, bindings);
+    // Solo los tipos de equipo que la casa real tiene (o ya vinculados): sin sensores de apertura no se listan puertas.
+    const kinds = new Set([...devices.values()].map(d => d.kind));
+    const items = state.project.items.filter(item => (senders[kindFor(item)] || kindFor(item) === 'contact') && (kinds.has(kindFor(item)) || bindings[item.id]));
+    const groups = [...state.project.rooms.map(room => [room.name, items.filter(item => inRoom(item, room))]), ['Sin espacio', items.filter(item => !state.project.rooms.some(room => inRoom(item, room)))]].filter(([, list]) => list.length);
+    const row = item => {
+      const kind = kindFor(item), chosen = bindings[item.id] || suggested[item.id] || '';
+      const options = [...devices.values()].filter(d => d.kind === kind).sort((a, b) => (b.entityId === suggested[item.id]) - (a.entityId === suggested[item.id]) || a.name.localeCompare(b.name, 'es'));
+      return `<label class="linker-row" data-search="${esc(`${item.name} ${options.map(o => `${o.name} ${o.area || ''}`).join(' ')}`.toLocaleLowerCase('es'))}"><span>${esc(item.name)}${suggested[item.id] ? '<small>Propuesto</small>' : ''}</span>
+        <select data-link-item="${esc(item.id)}" aria-label="Dispositivo para ${esc(item.name)}"><option value="">Solo maqueta</option>${options.map(o => `<option value="${esc(o.entityId)}" ${o.entityId === chosen ? 'selected' : ''}>${esc(o.name)}${o.area ? ` · ${esc(o.area)}` : ''}</option>`).join('')}</select></label>`;
+    };
+    const proposals = Object.keys(suggested).length;
+    modal(`
+     <h2>Vincular por habitación</h2>
+     <p>${proposals ? `Hay ${proposals} ${proposals === 1 ? 'propuesta' : 'propuestas'} según las áreas de Home Assistant y los nombres; revísalas antes de guardar.` : 'Elige el dispositivo real de cada equipo de la maqueta.'}</p>
+     <input id="linker-search" class="linker-search" placeholder="Buscar objeto o dispositivo…" aria-label="Buscar" autocomplete="off">
+     <div class="linker">${groups.map(([name, list]) => `<h3>${esc(name)}</h3>${list.map(row).join('')}`).join('') || '<p class="scene-empty">La maqueta no tiene equipos para vincular.</p>'}</div>
+     <div class="dialog-actions"><button type="button" id="linker-back" class="secondary">Volver</button><button type="button" id="linker-save" class="primary">Guardar vínculos</button></div>`, () => {
+      $('#linker-search').oninput = event => {
+        const query = event.target.value.trim().toLocaleLowerCase('es');
+        document.querySelectorAll('.linker-row').forEach(r => { r.hidden = !!query && !r.dataset.search.includes(query); });
+      };
+      $('#linker-back').onclick = openSettings;
+      $('#linker-save').onclick = () => {
+        let count = 0;
+        document.querySelectorAll('[data-link-item]').forEach(select => {
+          const id = select.dataset.linkItem, value = select.value;
+          if ((bindings[id] || '') === value) return;
+          if (value) bindings[id] = value; else delete bindings[id];
+          count++;
+        });
+        saveBindings();
+        paintStatus();
+        $('#dialog').close();
+        onLiveChange([...applyLive(), ...contactItems()]);
+        toast(count ? `${count} ${count === 1 ? 'vínculo actualizado' : 'vínculos actualizados'}. La maqueta muestra el estado real.` : 'Los vínculos no cambiaron.');
+      };
+    });
+  }
+
+  async function showDiagnosis() {
+    let log = [];
+    try { log = await bridge.log(); } catch {}
+    const result = diagnose({ status, bindings, devices, project: state.project, kindFor, log: log.slice(-40) });
+    const icons = { ok: 'check', warn: 'help', error: 'close' };
+    modal(`
+     <h2>Diagnóstico</h2>
+     <p>Revisión de la conexión, de cada equipo vinculado y de las últimas órdenes. El informe no incluye el token ni la dirección de tu casa.</p>
+     <ul class="diagnosis">${result.checks.map(c => `<li class="${c.level}">${icon(icons[c.level], 14)}<span>${esc(c.text)}</span></li>`).join('')}</ul>
+     <div class="dialog-actions">
+      ${result.orphans.length ? '<button type="button" id="diagnosis-clean" class="secondary">Quitar vínculos huérfanos</button>' : ''}
+      <button type="button" id="diagnosis-copy" class="secondary">Copiar informe</button>
+      <button type="button" id="diagnosis-back" class="secondary">Volver</button><button type="button" data-close class="primary">Cerrar</button>
+     </div>`, () => {
+      $('#diagnosis-back').onclick = openSettings;
+      $('#diagnosis-copy').onclick = async () => {
+        try { await navigator.clipboard.writeText(result.report); toast('Informe copiado.'); } catch { toast('No se pudo copiar el informe.'); }
+      };
+      const clean = $('#diagnosis-clean');
+      if (clean) clean.onclick = () => {
+        for (const key of result.orphans) delete bindings[key];
+        saveBindings();
+        paintStatus();
+        toast(`${result.orphans.length} ${result.orphans.length === 1 ? 'vínculo quitado' : 'vínculos quitados'}.`);
+        showDiagnosis();
+      };
     });
   }
 

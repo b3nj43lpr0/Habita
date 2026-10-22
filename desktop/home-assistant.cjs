@@ -24,6 +24,8 @@ class HomeAssistantClient extends EventEmitter {
     this.timeout = timeout;
     this.socket = null;
     this.entities = new Map();
+    // Área de Home Assistant de cada entidad (propia o de su dispositivo), para vincular por habitación.
+    this.areaOf = new Map();
     this.pending = new Map();
     this.nextId = 1;
     this.attempt = 0;
@@ -99,7 +101,7 @@ class HomeAssistantClient extends EventEmitter {
       const entity = message.event.data?.new_state;
       if (!relevant(entity)) return;
       this.entities.set(entity.entity_id, entity);
-      this.emit('device', fromEntity(entity));
+      this.emit('device', this.describe(entity));
     }
   }
 
@@ -108,14 +110,35 @@ class HomeAssistantClient extends EventEmitter {
       await this.request({ type: 'subscribe_events', event_type: 'state_changed' });
       const states = await this.request({ type: 'get_states' });
       this.entities = new Map(states.filter(relevant).map(e => [e.entity_id, e]));
+      await this.loadAreas();
       this.emit('devices', this.devices());
     } catch (error) {
       this.emit('warning', error.message);
     }
   }
 
+  // Las áreas son opcionales: sin permisos de registro o en versiones antiguas, se sigue sin ellas.
+  async loadAreas() {
+    try {
+      const [areas, entities, devices] = await Promise.all([
+        this.request({ type: 'config/area_registry/list' }),
+        this.request({ type: 'config/entity_registry/list' }),
+        this.request({ type: 'config/device_registry/list' }).catch(() => [])
+      ]);
+      const names = new Map(areas.map(area => [area.area_id, String(area.name).slice(0, 80)]));
+      const deviceArea = new Map(devices.map(device => [device.id, device.area_id]));
+      this.areaOf = new Map(entities.map(e => [e.entity_id, names.get(e.area_id || deviceArea.get(e.device_id)) || null]));
+    } catch {
+      this.areaOf = new Map();
+    }
+  }
+
+  describe(entity) {
+    return { ...fromEntity(entity), area: this.areaOf.get(entity.entity_id) || null };
+  }
+
   devices() {
-    return [...this.entities.values()].map(fromEntity).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return [...this.entities.values()].map(entity => this.describe(entity)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }
 
   entityFor(entityId, domains) {

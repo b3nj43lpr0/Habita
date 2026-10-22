@@ -20,7 +20,7 @@ function houseIcon(lit = false) {
   return nativeImage.createFromBitmap(data, { width: size, height: size, scaleFactor: 2 });
 }
 
-function createTray({ show, activateScene, aiAccess, setAiAccess, copyMcpConfig, quit }) {
+function createTray({ show, togglePanel, activateScene, aiAccess, setAiAccess, aiEdit, setAiEdit, aiAutoStop, setAiAutoStop, copyMcpConfig, phoneAccess, setPhoneAccess, showPhoneCode, quit }) {
   const icons = { off: houseIcon(false), on: houseIcon(true) };
   const tray = new Tray(icons.off);
   let scenes = [], status = null;
@@ -31,17 +31,25 @@ function createTray({ show, activateScene, aiAccess, setAiAccess, copyMcpConfig,
     tray.setContextMenu(Menu.buildFromTemplate([
       ...(status ? [{ label: status.text, enabled: false }] : []),
       { label: 'Abrir Habita', click: show },
+      { label: 'Panel rápido', click: togglePanel },
       { type: 'separator' },
       { label: 'Escenas', enabled: scenes.length > 0, submenu: scenes.length ? scenes.map(scene => ({ label: scene.name, click: () => activateScene(scene.id) })) : [{ label: 'Sin escenas', enabled: false }] },
       { type: 'separator' },
       { label: 'Permitir acceso para IA en este equipo', type: 'checkbox', checked: enabled, click: item => setAiAccess(item.checked).finally(refresh) },
+      { label: 'Permitir que la IA edite el plano', type: 'checkbox', checked: aiEdit(), click: item => setAiEdit(item.checked).finally(refresh) },
+      { label: 'Apagar el acceso de IA solo', submenu: [[0, 'Nunca'], [30, 'Después de 30 minutos'], [60, 'Después de 1 hora'], [240, 'Después de 4 horas']].map(([minutes, label]) => ({ label, type: 'radio', checked: aiAutoStop() === minutes, click: () => setAiAutoStop(minutes) })) },
       { label: 'Copiar configuración MCP', enabled, click: copyMcpConfig },
+      { type: 'separator' },
+      { label: 'Control desde el celular', type: 'checkbox', checked: phoneAccess(), click: item => setPhoneAccess(item.checked).finally(refresh) },
+      { label: 'Mostrar código para el celular…', enabled: phoneAccess(), click: showPhoneCode },
       { type: 'separator' },
       { label: 'Salir de Habita', click: quit }
     ]));
   }
 
-  tray.on('click', show);
+  // Clic: el panel rápido junto al ícono; doble clic abre la ventana completa.
+  tray.on('click', togglePanel);
+  tray.on('double-click', show);
   refresh();
 
   return {

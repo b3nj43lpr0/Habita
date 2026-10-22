@@ -68,6 +68,7 @@ export function createLibrary(ctx) {
     container.innerHTML = `
      <div class="library-description">Dibuja una habitación con dos clics en el plano. Sus paredes se generan al instante.</div>
      <button class="primary full" id="draw-room">${icon('plus', 16)} Dibujar habitación</button>
+     <button class="secondary full" id="add-note">${icon('note', 16)} Agregar nota al plano</button>
      <div class="section-label">Pisos</div>
      <div class="level-list">${levels.map(l => `
       <div class="level-row ${l.id === state.level ? 'active' : ''}">
@@ -79,6 +80,7 @@ export function createLibrary(ctx) {
      <div class="section-label">Espacios de ${esc(levels.find(l => l.id === state.level)?.name || levels[0].name)}</div><div class="space-list">${rooms}</div>
      <button id="empty-project" class="secondary full">Empezar una casa vacía</button>`;
     $('#draw-room').onclick = actions.startDrawing;
+    $('#add-note').onclick = () => actions.startNote();
     $('#add-level').onclick = actions.addLevel;
     container.querySelectorAll('[data-level]').forEach(b => b.onclick = () => actions.setLevel(b.dataset.level));
     container.querySelectorAll('[data-level-name]').forEach(input => input.onchange = () => actions.renameLevel(input.dataset.levelName, input.value));

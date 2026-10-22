@@ -7,6 +7,9 @@ import { validPlan } from './plan.js';
 import { isCover,validCover } from './cover.js';
 import { isVacuum,validVacuum } from './vacuum.js';
 import { validAutomations } from './automations.js';
+import { validNotes } from './notes.js';
+import { validPrice,validLink } from './shopping.js';
+import { validVersionsShape,restoreVersion } from './versions.js';
 import { onLevel,levelOf,levelsOf,validLevels } from './levels.js';
 export const round = n => Math.round(n * 1000) / 1000;
 export const snap = (n, enabled = true) => enabled ? round(Math.round(n / .1) * .1) : round(n);
@@ -143,6 +146,7 @@ export function validateProject(input) {
     if(!isRoom&&o.climate!==undefined&&(!isClimate(o)||!validClimate(o.climate)))throw new Error('Configuración de aire acondicionado inválida.');
     if(!isRoom&&o.tv!==undefined&&(!isTv(o)||!validTv(o.tv)))throw new Error('Configuración de televisor inválida.');
     if(!isRoom&&o.cover!==undefined&&(!isCover(o)||!validCover(o.cover)))throw new Error('Configuración de cortina inválida.');
+    if(!isRoom&&(!validPrice(o.price)||!validLink(o.link)))throw new Error('Datos de compra inválidos.');
     if(!isRoom&&o.vacuum!==undefined&&(!isVacuum(o)||!validVacuum(o.vacuum)))throw new Error('Configuración de aspiradora inválida.');
   }
   if(!validScenes(input.scenes)) throw new Error('Escenas inválidas.');
@@ -150,6 +154,10 @@ export function validateProject(input) {
   if(!validLevels(input.levels)) throw new Error('Pisos inválidos.');
   if(!validAutomations(input.automations)) throw new Error('Automatizaciones inválidas.');
   const levelIds=new Set(levelsOf(input).map(l=>l.id));
+  if(!validNotes(input.notes,levelIds)) throw new Error('Notas del plano inválidas.');
+  // Cada versión guardada debe ser, a su vez, una distribución válida de esta casa.
+  if(!validVersionsShape(input.versions)) throw new Error('Versiones inválidas.');
+  for(const v of input.versions||[]){try{validateProject({...restoreVersion(input,v),versions:undefined,scenes:undefined,automations:undefined});}catch(error){throw new Error(`La versión «${v.name}» no es válida: ${error.message}`);}}
   if([...input.rooms,...input.items].some(o=>o.level!==undefined&&!levelIds.has(o.level))) throw new Error('Un objeto o habitación está en un piso que no existe.');
   return clone(input);
 }

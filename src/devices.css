@@ -103,3 +103,25 @@ body.control-mode .device-tip{font-size:13px}
 /* Fila de lámpara atenuable: el relleno cálido muestra el brillo; se arrastra a los lados. */
 .room-lamp-list button[data-dim]{border-radius:10px;padding-left:8px;padding-right:8px;background:linear-gradient(90deg,#ffcf8f2e calc(var(--level,0) * 100%),transparent calc(var(--level,0) * 100%));cursor:ew-resize;touch-action:pan-y;transition:background .25s}
 .room-lamp-list button[data-dim].dimming{transition:none;background-color:#ffffff0a}
+/* Diagnóstico de la casa conectada. */
+.diagnosis{list-style:none;padding:0;margin:14px 0;display:grid;gap:7px;max-height:50vh;overflow:auto}
+.diagnosis li{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:12px;background:#ffffff0c;font-size:12.5px;line-height:1.4}
+.diagnosis li svg{flex:none;margin-top:2px}
+.diagnosis .ok svg{color:#8fd6a0}.diagnosis .warn svg{color:#f0c18b}.diagnosis .error svg{color:#ff9d8a}
+.diagnosis .error{background:#ff9d8a14}
+/* Vincular por habitación. */
+.linker-search{width:100%;margin:10px 0 4px;padding:9px 12px;border-radius:12px;border:1px solid #ffffff26;background:#0b10204d;color:inherit;font:inherit}
+.linker{max-height:52vh;overflow:auto;margin:8px 0}
+.linker h3{margin:14px 0 6px;font-size:12px;color:#d9c7aa;text-transform:uppercase;letter-spacing:.06em}
+.linker-row{display:grid;grid-template-columns:1fr minmax(0,1.3fr);gap:10px;align-items:center;padding:6px 0;font-size:13px}
+.linker-row small{margin-left:7px;padding:2px 7px;border-radius:8px;background:#8fd6a02b;color:#bdf0c9;font-size:10.5px}
+.linker-row select{min-width:0;width:100%}
+.linker-row[hidden]{display:none}
+/* Búsqueda en la red y Philips Hue. */
+.ha-url-row{display:flex;gap:8px;align-items:center}.ha-url-row input{flex:1;min-width:0}.ha-url-row button{flex:none;white-space:nowrap}
+.ha-found{display:grid;gap:6px;margin:4px 0 8px}.ha-found button{display:flex;flex-direction:column;align-items:flex-start;padding:8px 11px;border-radius:12px;border:1px solid #ffffff22;background:#ffffff0c;color:inherit;text-align:left}.ha-found small{color:#aab6ce}.ha-found p{margin:0;font-size:12px;color:#c9d0e2}
+.hue-section{margin-top:18px;padding-top:14px;border-top:1px solid #ffffff1a}.hue-section h3{margin:0 0 6px;font-size:14px}.hue-section p{font-size:12.5px;color:#c9d0e2}
+/* Control desde el celular. */
+.phone-toggle{display:flex;gap:9px;align-items:center;margin:12px 0;font-size:13px}
+.phone-code{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:center;margin:10px 0}.phone-code img{border-radius:14px;background:#fff;padding:6px}.phone-code p{margin:0 0 8px;font-size:13px}.phone-code small,.phone-note{color:#aab6ce;font-size:11.5px}
+@media(max-width:700px){.phone-code{grid-template-columns:1fr;justify-items:center}}

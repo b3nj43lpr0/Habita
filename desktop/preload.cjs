@@ -12,11 +12,17 @@ contextBridge.exposeInMainWorld('habita', {
   openProject: () => ipcRenderer.invoke('open-project'),
   // Imagen de un plano (PNG o JPG) elegida en el diálogo nativo; vuelve como data URL.
   openImage: () => ipcRenderer.invoke('open-image'),
+  // Enlaces de tiendas: se abren en el navegador del sistema (solo http y https).
+  openLink: url => ipcRenderer.invoke('open-link', url),
   homeAssistant: {
     status: () => ipcRenderer.invoke('ha:status'),
     devices: () => ipcRenderer.invoke('ha:devices'),
     configure: (url, token) => ipcRenderer.invoke('ha:configure', { url, token }),
     forget: () => ipcRenderer.invoke('ha:forget'),
+    discover: () => ipcRenderer.invoke('ha:discover'),
+    discoverHue: () => ipcRenderer.invoke('hue:discover'),
+    pairHue: host => ipcRenderer.invoke('hue:pair', host),
+    forgetHue: () => ipcRenderer.invoke('hue:forget'),
     log: () => ipcRenderer.invoke('ha:log'),
     setLight: (entityId, state) => ipcRenderer.invoke('ha:set-light', entityId, state),
     setClimate: (entityId, state) => ipcRenderer.invoke('ha:set-climate', entityId, state),
@@ -33,6 +39,12 @@ contextBridge.exposeInMainWorld('habita', {
     aiReply: (id, reply) => ipcRenderer.send('ai:reply', id, reply),
     onScene: listen('tray:scene'),
     setScenes: scenes => ipcRenderer.send('tray:scenes', scenes),
-    setStatus: status => ipcRenderer.send('tray:status', status)
+    setStatus: status => ipcRenderer.send('tray:status', status),
+    phone: {
+      status: () => ipcRenderer.invoke('remote:status'),
+      set: enabled => ipcRenderer.invoke('remote:set', enabled),
+      rotate: () => ipcRenderer.invoke('remote:rotate'),
+      onShow: listen('remote:show')
+    }
   }
 });

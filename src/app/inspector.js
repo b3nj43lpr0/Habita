@@ -9,7 +9,9 @@ import { isCover, coverFor, coversInRoom } from '../cover.js';
 import { isVacuum, vacuumFor, vacuumNames, vacuumBusy } from '../vacuum.js';
 import { captureScene, sceneLimit } from '../scenes.js';
 import { thumbnail } from '../furniture.js';
-import { $, esc, fmt, toast, modal } from './dom.js';
+import { $, esc, fmt, toast, modal, download } from './dom.js';
+import { shoppingList, shoppingCsv, money, validLink } from '../shopping.js';
+import { mountVersions } from './versions-ui.js';
 import { dimByDragging } from './dim-drag.js';
 import { icon } from './icons.js';
 
@@ -50,6 +52,7 @@ export function createInspector(ctx) {
       <div><strong>${fmt(totalArea(project))}<small>m²</small></strong><span>Superficie interior</span></div>
       <div><strong>${project.rooms.length}</strong><span>Habitaciones</span></div>
      </div>
+     <button id="shopping-list" class="secondary full shopping-button">${icon('cart', 16)} Lista de compras${shoppingList(project).total ? ` · ${money(shoppingList(project).total)}` : ''}</button>
      <div class="property-section"><h3>Construcción</h3>
       ${numeric('Altura de paredes', 'wallHeight', project.wallHeight, 1, 10)}${numeric('Espesor de paredes', 'wallThickness', project.wallThickness, .05, 1, .01)}
      </div>
@@ -84,11 +87,54 @@ export function createInspector(ctx) {
      <div class="property-section"><h3>Acabado</h3>
       <label class="color-field"><input type="color" data-field="color" value="${target.color}" aria-label="Color del objeto"><span>Color personalizado</span><span>${target.color}</span></label>
      </div>
+     ${item && !isOpening(item) ? `<div class="property-section purchase"><h3>Compra</h3>
+      <label class="purchase-field"><span>Precio</span><input id="item-price" type="number" min="0" max="10000000000" step="1000" inputmode="numeric" placeholder="Sin precio" value="${item.price ?? ''}" aria-label="Precio en pesos"><span>CLP</span></label>
+      <label class="purchase-field"><span>Tienda</span><input id="item-link" type="url" maxlength="500" placeholder="https://…" value="${esc(item.link || '')}" aria-label="Enlace de la tienda">${item.link ? `<button type="button" id="open-link" class="icon-button" aria-label="Abrir enlace" title="Abrir en el navegador">${icon('link', 14)}</button>` : ''}</label>
+     </div>` : ''}
      ${status}
      <div class="object-actions">
       ${item ? `<button id="rotate-item" class="secondary" title="Girar 90 grados (R)">${icon('rotate', 16)} Girar</button><button id="duplicate-item" class="secondary">${icon('copy', 16)} Duplicar</button>` : ''}
       <button id="delete-item" class="danger">${icon('trash', 16)} Eliminar ${item ? 'objeto' : 'habitación'}</button>
      </div>`;
+  }
+
+  // Precio y enlace de compra del mueble: cada campo se guarda al confirmarlo; vacío lo quita.
+  function bindPurchase(item) {
+    const save = (key, value, valid) => {
+      if (value === item[key]) return;
+      if (!valid) { toast(key === 'price' ? 'Escribe un precio en pesos, sin puntos.' : 'El enlace debe empezar con http:// o https://.'); render(); return; }
+      actions.checkpoint();
+      if (value === undefined) delete item[key]; else item[key] = value;
+      actions.changed();
+    };
+    $('#item-price').onchange = event => {
+      const text = event.target.value.trim(), value = text === '' ? undefined : Math.round(Number(text));
+      save('price', value, value === undefined || (Number.isFinite(value) && value >= 0 && value <= 1e10));
+    };
+    $('#item-link').onchange = event => {
+      const text = event.target.value.trim(), value = text || undefined;
+      save('link', value, validLink(value));
+    };
+    const open = $('#open-link');
+    if (open) open.onclick = () => openLink(item.link);
+  }
+  const openLink = url => { if (window.habita?.openLink) window.habita.openLink(url); else window.open(url, '_blank', 'noopener'); };
+
+  function showShopping() {
+    const list = shoppingList(state.project);
+    const groups = [...new Set(list.rows.map(r => r.room))];
+    modal(`
+     <h2>Lista de compras</h2>
+     <p>Agrega precio y enlace a cada mueble desde su panel («Compra»). ${list.missing ? `${list.missing} de ${list.rows.length} objetos aún no tienen precio.` : 'Todos los objetos tienen precio.'}</p>
+     <div class="shopping-table">${groups.map(room => `<h3>${esc(room)}</h3>${list.rows.filter(r => r.room === room).map(r => `
+      <div class="shopping-row"><button data-pick="${esc(r.id)}" title="Elegir en la maqueta">${esc(r.name)}<small>${esc(r.size)}</small></button>
+       <span>${r.price !== undefined ? money(r.price) : '<em>Sin precio</em>'}</span>${r.link ? `<button class="icon-button" data-link="${esc(r.id)}" aria-label="Abrir enlace de ${esc(r.name)}">${icon('link', 14)}</button>` : '<span></span>'}</div>`).join('')}`).join('')}</div>
+     <div class="shopping-total"><span>Total</span><strong>${money(list.total)}</strong></div>
+     <div class="dialog-actions"><button type="button" id="shopping-csv" class="secondary">Exportar CSV</button><button type="button" data-close class="primary">Cerrar</button></div>`, () => {
+      $('#shopping-csv').onclick = () => download(shoppingCsv(list), `${state.project.name || 'habita'} - lista de compras.csv`, 'text/csv;charset=utf-8');
+      document.querySelectorAll('.shopping-row [data-pick]').forEach(b => b.onclick = () => { $('#dialog').close(); actions.select(b.dataset.pick); ctx.scene.focusItem(b.dataset.pick); });
+      document.querySelectorAll('.shopping-row [data-link]').forEach(b => b.onclick = () => openLink(list.rows.find(r => r.id === b.dataset.link).link));
+    });
   }
 
   // Varios objetos elegidos: lista, alinear y repartir, y las acciones que valen para todos.
@@ -273,7 +319,8 @@ export function createInspector(ctx) {
     }
     if (!item) mountRoomDevices(container, room);
     if (room) ctx.devices.mountRoomSensors(container.querySelector('.room-edit-tip'), room);
-    if (!item && !room) { mountScenes(container); ctx.automations?.mount(container); }
+    if (!item && !room) { mountScenes(container); mountVersions(container, ctx); ctx.automations?.mount(container); $('#shopping-list').onclick = showShopping; }
+    if (item && $('#item-price')) bindPurchase(item);
     bindProperties(container, item, room);
   }
 

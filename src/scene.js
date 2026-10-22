@@ -45,7 +45,7 @@ export function createScene(host, callbacks) {
   const fill=new THREE.DirectionalLight('#bfcee8',.65);fill.position.set(5,7,-8);scene.add(fill);
   const grid=new THREE.GridHelper(40,80,'#465061','#2b3543');grid.position.y=-.32;grid.visible=false;scene.add(grid);
   const stage=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.ShadowMaterial({color:'#080d17',opacity:.27}));stage.rotation.x=-Math.PI/2;stage.position.y=-.29;stage.receiveShadow=true;scene.add(stage);
-  let house=new THREE.Group(),selectedBox=null,project=null,mode='3d',wallMode='cut',selected=null,ghost=null,activeLevel='base',heat=null;
+  let house=new THREE.Group(),selectedBox=null,project=null,mode='3d',wallMode='auto',selected=null,ghost=null,activeLevel='base',heat=null;
   // Mapa de consumo: verde (poco) → amarillo → rojo (lo que más consume la casa); gris sin sensor.
   const heatColor=watts=>{if(watts==null)return '#7d8590';const max=Math.max(1,...Object.values(heat)),t=watts/max;return '#'+new THREE.Color('#6fbf73').lerp(new THREE.Color('#f2c14e'),Math.min(1,t*2)).lerp(new THREE.Color('#e5534b'),Math.max(0,t*2-1)).getHexString();};
   // Altura del piso de un objeto o habitación sobre el suelo del primer piso.
@@ -79,6 +79,7 @@ export function createScene(host, callbacks) {
     planMesh.visible=mode==='2d';planMesh.userData.locked=plan.locked;dirty=true;
   }
   function rebuild(data,id=selected) {
+    setHover(null);
     const reusable=new Map(house.children.filter(o=>o.userData.itemId).map(o=>[o.userData.itemId,o]));
     for(const model of reusable.values())house.remove(model);
     project=data;selected=id;syncPlan(data.plan);const flowsBefore=new Map([...airflows].map(([key,flow])=>[key,flow.snapshot()]));scene.remove(house);disposeTree(house);house=new THREE.Group();scene.add(house);airflows.clear();
@@ -87,17 +88,19 @@ export function createScene(host, callbacks) {
     // En 3D se ven el piso activo y los de abajo (con paredes completas); en 2D y recorrido, solo el activo.
     const levels=levelsOf(data),active=Math.max(0,levels.findIndex(l=>l.id===activeLevel));
     const shown=new Set(levels.filter((l,i)=>mode==='3d'?i<=active:i===active).map(l=>l.id));
-    const wallMat=new THREE.MeshStandardMaterial({color:'#ece6dc',roughness:.88});
+    // De noche (como la maqueta nocturna de house-control) los muros y pisos se oscurecen y las
+    // lámparas encendidas iluminan su entorno con un halo cálido más amplio.
+    const night=isNight&&mode!=='walk',wallMat=new THREE.MeshStandardMaterial({color:night?'#4a4d5c':'#ece6dc',roughness:.88});
     for(const level of levels.filter(l=>shown.has(l.id))) {
       const view=onLevel(data,level.id),y=levelElevation(data,level.id),below=level.id!==levels[active].id;
       for(const r of view.rooms) {
-        const mat=heat?new THREE.MeshStandardMaterial({color:heatColor(heat[r.id]),roughness:.9}):new THREE.MeshStandardMaterial({map:floorTexture(r.color),roughness:.9});
+        const mat=heat?new THREE.MeshStandardMaterial({color:heatColor(heat[r.id]),roughness:.9}):new THREE.MeshStandardMaterial({map:floorTexture(r.color),color:night?'#7d8091':'#ffffff',roughness:.9});
         addBox(r.w,.16,r.d,r.x,y-.08,r.z,mat,r.id);
         const base=new THREE.MeshStandardMaterial({color:'#d2bd9d',roughness:.7});addBox(r.w+.08,.1,r.d+.08,r.x,y-.21,r.z,base);
         if(mode==='walk')addBox(r.w,.08,r.d,r.x,y+data.wallHeight+.04,r.z,new THREE.MeshStandardMaterial({color:'#e3ded0',roughness:1}));
       }
       if(wallMode!=='none'||mode==='walk') for(const w of wallsFor(view)) {
-        const height=mode==='walk'||below?data.wallHeight:mode==='2d'?.09:wallMode==='cut'?.85:data.wallHeight;
+        const height=mode==='walk'||below?data.wallHeight:mode==='2d'?.09:wallMode==='cut'||(wallMode==='auto'&&facesCamera(w,view))?.85:data.wallHeight;
         for(const p of wallPieces(w,view)) {
           const top=Math.min(height,p.top);if(top<=p.bottom)continue;
           const len=p.b-p.a, mid=(p.a+p.b)/2;
@@ -124,7 +127,7 @@ export function createScene(host, callbacks) {
     const sources=new Set(lit.slice(0,16).map(i=>i.id));
     for(const item of lamps){
       if(sources.has(item.id)){
-        const light=new THREE.PointLight('#ffd29b',0,4,2);light.position.set(item.x,baseY(item)+item.h*.84,item.z);house.add(light);light.userData.lightFor=item.id;
+        const light=new THREE.PointLight('#ffd29b',0,isNight?6.5:4,isNight?1.6:2);light.position.set(item.x,baseY(item)+item.h*.84,item.z);house.add(light);light.userData.lightFor=item.id;
       }
       const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture(),color:'#ffe4b4',transparent:true,opacity:isNight?.7:.35,depthWrite:false,blending:THREE.AdditiveBlending}));
       glow.position.set(item.x,baseY(item)+item.h*.84,item.z);glow.scale.setScalar(Math.max(.6,item.w*2.8));house.add(glow);
@@ -138,12 +141,26 @@ export function createScene(host, callbacks) {
     lightPreviewId=climatePreviewId=null;
     setSelection(mode==='walk'?null:id);
   }
+  // Paredes según la vista (como house-control): los muros exteriores que dan hacia la cámara se
+  // bajan para ver el interior; los del fondo y los interiores quedan completos. Al girar la
+  // cámara a otro cuadrante, la maqueta se vuelve a armar (ver frame).
+  function facesCamera(w,view){
+    const mid=(w.a+w.b)/2,inside=(x,z)=>view.rooms.some(r=>x>r.x-r.w/2&&x<r.x+r.w/2&&z>r.z-r.d/2&&z<r.z+r.d/2);
+    const at=s=>w.axis==='x'?inside(mid,w.c+s):inside(w.c+s,mid),plus=at(.2),minus=at(-.2);
+    if(plus===minus)return false;
+    const out=plus?-1:1,dir=camera.position.clone().sub(controls.target);
+    return (w.axis==='x'?dir.z:dir.x)*out>0;
+  }
+  const viewQuadrant=()=>{const dir=camera.position.clone().sub(controls.target);return `${dir.x>0}${dir.z>0}`;};
+  let lastQuadrant=null;
   function applyLampState(id,state){
     const tint=lightColor(state),level=state.on?state.brightness/100:0;
+    const before=lampLevels.get(id);lampLevels.set(id,level);
     for(const node of house.children){
-      if(node.userData.lightFor===id){if(node.isPointLight){node.color.set(tint);node.intensity=(isNight?9:3.5)*level;}else{node.material.color.set(tint);node.material.opacity=(isNight?.7:.35)*level;node.visible=level>0&&mode!=='2d';}}
+      if(node.userData.lightFor===id){if(node.isPointLight){node.color.set(tint);node.intensity=(isNight?14:3.5)*level;}else{node.material.color.set(tint);node.material.opacity=(isNight?.7:.35)*level;node.visible=level>0&&mode!=='2d';}}
       if(node.userData.itemId===id)node.traverse(child=>{if(child.userData.lampShade){child.material.emissive.set(tint);child.material.emissiveIntensity=1.15*level;}});
     }
+    if(before===0&&level>0)pulseLamp(id);
     dirty=true;
   }
   // El flujo de aire se oculta en el plano 2D; la aleta, el piloto y el halo los anima el flujo.
@@ -196,6 +213,25 @@ export function createScene(host, callbacks) {
       const step=Math.min(dist,.3*dt);o.x+=dx/dist*step;o.z+=dz/dist*step;v.heading=Math.atan2(dx,dz);
       v.model.position.x=v.item.x+o.x;v.model.position.z=v.item.z+o.z;v.model.rotation.y=v.heading;dirty=true;
     }
+  }
+  // Contorno suave del objeto bajo el mouse (antes de elegirlo) y cursor de mano, como la selección
+  // espacial de la oficina 3D de referencia.
+  let hoverBox=null,hoverId=null;
+  function setHover(id){
+    if(callbacks.isDrawing()||mode==='walk')id=null;
+    if(id===hoverId&&(!id||hoverBox))return;
+    hoverId=id;
+    if(hoverBox){scene.remove(hoverBox);hoverBox.geometry.dispose();hoverBox.material.dispose();hoverBox=null;}
+    const model=id&&id!==selected&&!group.includes(id)&&house.children.find(g=>g.userData.itemId===id);
+    if(model){hoverBox=new THREE.BoxHelper(model,'#ffffff');Object.assign(hoverBox.material,{transparent:true,opacity:.4,depthTest:false});hoverBox.renderOrder=9;scene.add(hoverBox);}
+    if(!callbacks.isDrawing())renderer.domElement.style.cursor=id?'pointer':'';
+    dirty=true;
+  }
+  // Destello del halo al encender una lámpara (sin movimiento si el sistema pide reducirlo).
+  const lampLevels=new Map(),pulses=[];
+  function pulseLamp(id){
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    for(const node of house.children)if(node.isSprite&&node.userData.lightFor===id)pulses.push({sprite:node,base:node.scale.x,start:performance.now()});
   }
   function setSelection(id) {
     if(climatePreviewId){const item=project?.items.find(i=>i.id===climatePreviewId);if(item)applyClimateState(item.id,climateFor(item));climatePreviewId=null;}
@@ -262,7 +298,7 @@ export function createScene(host, callbacks) {
   host.addEventListener('pointercancel',()=>finishRoomGesture(true));
   document.addEventListener('keydown',event=>{if(event.key==='Escape')finishRoomGesture(true);});
   let start=null,dragId=null,dragging=false,offset=null,drawClick=false,planDrag=null,hoverQueued=false;
-  renderer.domElement.addEventListener('pointerleave',()=>callbacks.hover?.(null));
+  renderer.domElement.addEventListener('pointerleave',()=>{setHover(null);callbacks.hover?.(null);});
   renderer.domElement.addEventListener('pointerdown',event=>{
     if(mode==='walk'){event.stopImmediatePropagation();if(!walker.beginLook(event))walker.lock();return;}
     if(event.button!==0)return;
@@ -280,8 +316,8 @@ export function createScene(host, callbacks) {
     if(mode==='walk')return;
     const p=point(event);callbacks.pointer(p);
     // Etiqueta del equipo bajo el mouse: una consulta por cuadro y nunca mientras se arrastra.
-    if(event.buttons||dragging)callbacks.hover?.(null);
-    else if(!hoverQueued){hoverQueued=true;const at={clientX:event.clientX,clientY:event.clientY};requestAnimationFrame(()=>{hoverQueued=false;callbacks.hover?.(hit(at)?.object.userData.itemId||null,at.clientX,at.clientY);});}
+    if(event.buttons||dragging){setHover(null);callbacks.hover?.(null);}
+    else if(!hoverQueued){hoverQueued=true;const at={clientX:event.clientX,clientY:event.clientY};requestAnimationFrame(()=>{hoverQueued=false;const id=hit(at)?.object.userData.itemId||null;setHover(id);callbacks.hover?.(id,at.clientX,at.clientY);});}
     if(planDrag&&p&&start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>4){if(!planDrag.active){callbacks.startPlanDrag();planDrag.active=true;}callbacks.movePlan(p.x-planDrag.x,p.z-planDrag.z);}
     if(dragId&&start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>4){if(!dragging){callbacks.startDrag();dragging=true;}callbacks.move(dragId,p.x+offset.x,p.z+offset.z);}
   });
@@ -304,12 +340,39 @@ export function createScene(host, callbacks) {
     walker.exit();mode=next;camera=orbitCamera;controls.enabled=!callbacks.isDrawing();grid.visible=mode==='2d';
     controls.enableRotate=mode==='3d';composition();camera.position.copy(controls.target).add(mode==='2d'?new THREE.Vector3(0,25,.001):new THREE.Vector3(13,15,17));camera.up.set(0,1,0);controls.update();rebuild(project);softenChange();return true;
   }
+  // Recorrido automático para grabar video: una vuelta completa alrededor de la casa o un paseo
+  // que pasa por cada espacio mientras la cámara gira despacio. Al terminar, la cámara vuelve.
+  let tour=null;
+  function roomFrame(room){
+    const y=levelElevation(project,levelOf(room)),top=y+project.wallHeight;camera.updateMatrixWorld();
+    const box=new THREE.Box3();for(const x of [room.x-room.w/2,room.x+room.w/2])for(const h of [y,top])for(const z of [room.z-room.d/2,room.z+room.d/2])box.expandByPoint(new THREE.Vector3(x,h,z).applyMatrix4(camera.matrixWorldInverse));
+    const {width,height}=host.getBoundingClientRect(),aspect=width/Math.max(height,1);
+    // Apuntar a media altura de la habitación (no al piso): así queda centrada con sus muros desde
+    // cualquier ángulo, aunque la cámara siga girando durante el paseo.
+    const target=new THREE.Vector3(room.x,y+project.wallHeight*.45,room.z);
+    return {target,zoom:THREE.MathUtils.clamp(Math.min(16*aspect/(box.max.x-box.min.x),16/(box.max.y-box.min.y))*.62,.3,4)};
+  }
+  function stepTour(now){
+    const t=Math.min(1,(now-tour.start)/tour.duration),ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+    const turn=tour.kind==='orbit'?t*Math.PI*2:t*Math.PI*.6;
+    let target=tour.home.target,zoom=tour.home.zoom;
+    if(tour.kind==='rooms'){
+      const stops=tour.stops,span=1/(stops.length-1),i=Math.min(stops.length-2,Math.floor(t/span)),local=ease((t-i*span)/span);
+      target=new THREE.Vector3().lerpVectors(stops[i].target,stops[i+1].target,local);zoom=THREE.MathUtils.lerp(stops[i].zoom,stops[i+1].zoom,local);
+    }
+    controls.target.copy(target);camera.position.copy(target).add(tour.offset.clone().applyAxisAngle(new THREE.Vector3(0,1,0),turn));
+    camera.zoom=zoom;camera.updateProjectionMatrix();controls.update();dirty=true;
+    if(t===1){const done=tour.done;composition();camera.position.copy(tour.saved.position);controls.target.copy(tour.saved.target);camera.zoom=tour.saved.zoom;camera.updateProjectionMatrix();controls.update();tour=null;done?.();}
+  }
   let lastTime=performance.now(),vacuumTime=lastTime;const lastPosition=new THREE.Vector3(),lastRotation=new THREE.Quaternion();
   function frame(){requestAnimationFrame(frame);const now=performance.now();walker.update((now-lastTime)/1000);lastTime=now;if(mode!=='walk')controls.update();
-    if(focusMotion){const t=Math.min(1,(now-focusMotion.start)/360),ease=1-Math.pow(1-t,3),target=new THREE.Vector3().lerpVectors(focusMotion.from,focusMotion.to,ease),delta=target.sub(controls.target);controls.target.add(delta);camera.position.add(delta);controls.update();dirty=true;if(t===1)focusMotion=null;}
+    if(tour)stepTour(now);
+    if(focusMotion){const t=Math.min(1,(now-focusMotion.start)/(focusMotion.duration||360)),ease=1-Math.pow(1-t,3),target=new THREE.Vector3().lerpVectors(focusMotion.from,focusMotion.to,ease),delta=target.sub(controls.target);controls.target.add(delta);camera.position.add(delta);if(focusMotion.zoom){camera.zoom=THREE.MathUtils.lerp(focusMotion.zoom[0],focusMotion.zoom[1],ease);camera.updateProjectionMatrix();}controls.update();dirty=true;if(t===1)focusMotion=null;}
     // El aire se anima aunque Windows tenga las animaciones apagadas: es la señal de que el equipo
     // está funcionando (y muchos equipos las apagan por rendimiento, no por accesibilidad).
     for(const flow of airflows.values())if(flow.active){flow.update(now/1000);dirty=true;}
+    if(wallMode==='auto'&&mode==='3d'&&project){const quadrant=viewQuadrant();if(lastQuadrant!==null&&quadrant!==lastQuadrant)rebuild(project);lastQuadrant=quadrant;}
+    for(let i=pulses.length-1;i>=0;i--){const p=pulses[i],t=Math.min(1,(now-p.start)/520);p.sprite.scale.setScalar(p.base*(1+.7*Math.sin(Math.PI*t)*(1-t*.3)));dirty=true;if(t===1){p.sprite.scale.setScalar(p.base);pulses.splice(i,1);}}
     moveVacuums(now,Math.min(.1,(now-vacuumTime)/1000));vacuumTime=now;
     if(dirty||!lastPosition.equals(camera.position)||!lastRotation.equals(camera.quaternion)){
       updateRoomTools();look.render(camera,mode);callbacks.frame?.(camera,host.getBoundingClientRect());lastPosition.copy(camera.position);lastRotation.copy(camera.quaternion);dirty=false;
@@ -328,7 +391,7 @@ export function createScene(host, callbacks) {
     freeWalk(){walker.free();},
     wallMode(value){wallMode=value;rebuild(project);},
     drawing(value){controls.enabled=!value;renderer.domElement.style.cursor=value?'crosshair':'';},
-    ambience(preset){ambiencePreset=preset;isNight=['night','cinema'].includes(preset);hemi.intensity=isNight?.45:preset==='cozy'?.95:1.25;sun.intensity=isNight?.6:preset==='cozy'?1.5:2;fill.intensity=preset==='cinema'?.9:.55;fill.color.set(preset==='cinema'?'#879bff':'#bfcee8');scene.background=viewBackground(preset);look.night(isNight);rebuild(project);},
+    ambience(preset){ambiencePreset=preset;isNight=['night','cinema'].includes(preset);hemi.intensity=preset==='night'?.28:isNight?.45:preset==='cozy'?.95:1.25;sun.intensity=preset==='night'?.35:isNight?.6:preset==='cozy'?1.5:2;fill.intensity=preset==='cinema'?.9:.55;fill.color.set(preset==='cinema'?'#879bff':'#bfcee8');scene.background=viewBackground(preset);look.night(isNight);rebuild(project);},
     visualTuning(brightness,warmth){renderer.toneMappingExposure=.35+brightness*.008;sun.color.copy(new THREE.Color('#b7d7ff').lerp(new THREE.Color('#ffd09b'),warmth/100));scene.environmentIntensity=(ambiencePreset==='night'?.16:.3)*(.6+brightness/100*.6);dirty=true;},
     zoom(factor){camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.3,6);camera.updateProjectionMatrix();dirty=true;},
     // Encuadra la casa del piso activo en el espacio libre: proyecta su caja (con la altura de los
@@ -346,12 +409,39 @@ export function createScene(host, callbacks) {
     // Direcciones del suelo que en pantalla se ven hacia la derecha y hacia arriba, redondeadas al eje
     // más cercano: las flechas del teclado mueven el objeto como se ve, gire como gire la cámara.
     screenAxes(){const axis=v=>{v.y=0;return Math.abs(v.x)>=Math.abs(v.z)?{x:Math.sign(v.x)||1,z:0}:{x:0,z:Math.sign(v.z)||1};};return {right:axis(new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion)),up:axis(new THREE.Vector3(0,1,0).applyQuaternion(camera.quaternion))};},
+    // Vuelo hacia una habitación: la cámara conserva su giro, se centra en ella y acerca el zoom
+    // hasta que la habitación llena el espacio libre.
+    focusRoom(id){
+      const room=project.rooms.find(r=>r.id===id);if(!room||mode==='walk')return;
+      const y=levelElevation(project,levelOf(room)),top=y+(mode==='3d'?project.wallHeight:0);camera.updateMatrixWorld();
+      const box=new THREE.Box3();for(const x of [room.x-room.w/2,room.x+room.w/2])for(const h of [y,top])for(const z of [room.z-room.d/2,room.z+room.d/2])box.expandByPoint(new THREE.Vector3(x,h,z).applyMatrix4(camera.matrixWorldInverse));
+      const {width,height}=host.getBoundingClientRect(),free=Math.max(.3,(height-insets.top-insets.bottom)/Math.max(height,1)),aspect=width/Math.max(height,1);
+      const zoom=THREE.MathUtils.clamp(Math.min(16*aspect/(box.max.x-box.min.x),16*free/(box.max.y-box.min.y))*.8,.3,4);
+      // El objetivo está en el centro de la vista: moverlo lo que separa el centro de la caja proyectada.
+      const to=controls.target.clone().add(new THREE.Vector3((box.max.x+box.min.x)/2,(box.max.y+box.min.y)/2,0).applyQuaternion(camera.quaternion));
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){const delta=to.sub(controls.target);controls.target.add(delta);camera.position.add(delta);camera.zoom=zoom;camera.updateProjectionMatrix();controls.update();dirty=true;return;}
+      focusMotion={start:performance.now(),from:controls.target.clone(),to,zoom:[camera.zoom,zoom],duration:620};
+    },
     setInsets(top,bottom){if(insets.top===top&&insets.bottom===bottom)return;insets={top,bottom};composition();orbitCamera.updateProjectionMatrix();dirty=true;},
     plan(value){syncPlan(value);},
     setHeat(values){heat=values;rebuild(project);},
     // Piso activo: el que se edita, se recorre y recibe los clics (el plano de apoyo sube con él).
     setLevel(id){activeLevel=id;plane.constant=-levelElevation(project,id);if(mode==='walk')walker.enter(onLevel(project,id),null,levelElevation(project,id));rebuild(project,mode==='walk'?null:selected);},
     ghost(a,b,line=false){dirty=true;if(ghost){scene.remove(ghost);disposeTree(ghost);ghost=null;}if(a&&b&&line){ghost=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a.x,.06,a.z),new THREE.Vector3(b.x,.06,b.z)]),new THREE.LineBasicMaterial({color:'#e9b87e',depthTest:false}));ghost.renderOrder=11;scene.add(ghost);}else if(a&&b){const geo=new THREE.BoxGeometry(Math.max(.01,Math.abs(a.x-b.x)),.04,Math.max(.01,Math.abs(a.z-b.z)));ghost=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:'#e9b87e',transparent:true,opacity:.4,depthTest:false}));ghost.position.set((a.x+b.x)/2,.03,(a.z+b.z)/2);scene.add(ghost);}},
-    screenshot(){look.render(camera,mode);return renderer.domElement.toDataURL('image/png');}
+    // Recorrido para video: devuelve el flujo de la maqueta para grabarlo y avisa al terminar.
+    startTour(kind,seconds,done){
+      if(mode!=='3d'||tour)return null;
+      const saved={position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom};
+      focusMotion=null;
+      const rooms=onLevel(project,activeLevel).rooms;
+      const home={target:controls.target.clone(),zoom:camera.zoom};
+      const stops=kind==='rooms'?[home,...rooms.map(roomFrame),home]:[home,home];
+      // En el video no hay paneles encima: la casa va al centro exacto del cuadro.
+      orbitCamera.clearViewOffset();orbitCamera.updateProjectionMatrix();
+      tour={kind:kind==='rooms'&&rooms.length?'rooms':'orbit',start:performance.now(),duration:seconds*1000,offset:camera.position.clone().sub(controls.target),home,stops,saved,done};
+      return renderer.domElement.captureStream(30);
+    },
+    stopTour(){if(tour){tour.duration=1;}},
+    screenshot(type='image/png',quality){look.render(camera,mode);return renderer.domElement.toDataURL(type,quality);}
   };
 }

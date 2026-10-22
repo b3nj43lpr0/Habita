@@ -1,6 +1,6 @@
 {
   "name": "habita-studio",
-  "version": "0.8.4",
+  "version": "0.9.0",
   "description": "Editor local de casas en 2D y 3D",
   "private": true,
   "type": "module",
@@ -16,12 +16,13 @@
     "pack:win": "npm run build && node node_modules/electron/install.js && electron-builder --win portable --config.electronDist=node_modules/electron/dist"
   },
   "dependencies": {
+    "qrcode": "1.5.4",
     "three": "0.186.1"
   },
   "devDependencies": {
-    "vite": "8.3.4",
     "electron": "44.7.2",
-    "electron-builder": "26.15.3"
+    "electron-builder": "26.15.3",
+    "vite": "8.3.4"
   },
   "build": {
     "appId": "cl.habita.studio",

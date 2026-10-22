@@ -63,6 +63,7 @@ export function createDimensions(ctx) {
   const button = document.querySelector('#dimensions-toggle');
   function paintButton() {
     button.hidden = state.view !== '2d';
+    document.querySelector('#measure-tool').hidden = state.view !== '2d';
     button.setAttribute('aria-pressed', String(enabled));
     button.title = enabled ? 'Ocultar cotas' : 'Mostrar cotas';
   }
@@ -76,7 +77,9 @@ export function createDimensions(ctx) {
   function render(camera, rect) {
     last = [camera, rect];
     paintButton();
-    svg.style.display = enabled && state.view === '2d' && !state.control ? '' : 'none';
+    // La huincha se ve aunque las cotas estén ocultas.
+    const measures = [state.measure, state.measurePreview].filter(Boolean).map(({ a, b }) => ({ a: [a.x, a.z], b: [b.x, b.z], text: dimLabel(Math.hypot(b.x - a.x, b.z - a.z)), kind: 'measure' }));
+    svg.style.display = (enabled || measures.length) && state.view === '2d' && !state.control ? '' : 'none';
     if (svg.style.display) return;
     const view = onLevel(state.project, state.level);
     const at = (x, z) => {
@@ -87,7 +90,7 @@ export function createDimensions(ctx) {
     const scale = Math.hypot(...at(1, 0).map((v, i) => v - at(0, 0)[i]));
     const item = state.selection.length < 2 ? view.items.find(o => o.id === state.selected) : null;
     const parts = [];
-    for (const { a, b, text, kind } of planDimensions(view, state.project.wallThickness, item, 26 / scale)) {
+    for (const { a, b, text, kind } of [...(enabled ? planDimensions(view, state.project.wallThickness, item, 26 / scale) : []), ...measures]) {
       const [x1, y1] = at(...a), [x2, y2] = at(...b), length = Math.hypot(x2 - x1, y2 - y1);
       if (length < 6) continue;
       // Línea con remates perpendiculares y el texto centrado sobre ella (si cabe).

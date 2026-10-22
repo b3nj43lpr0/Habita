@@ -47,6 +47,45 @@ aplicación portable de Windows. El primer uso de Electron descarga su runtime.
   El recorrido muestra paredes completas y puertas abiertas, y bloquea paredes y cajas de
   muebles mediante un cuerpo de 40 cm de ancho. No simula escaleras ni desniveles.
 
+## Novedades de 0.9.0
+
+Editor:
+- **Nueva casa** (botón + de la barra superior): casa de ejemplo, departamento, estudio,
+  una habitación o plano vacío. Reemplazar la casa se puede deshacer.
+- **Cotas en el plano 2D**: medidas exteriores de la casa, medidas del objeto elegido y
+  su distancia libre a cada muro, en vivo al arrastrar. Botón **Cotas** para ocultarlas.
+- **Medir** (tecla M): huincha entre dos puntos; se pega a las esquinas y con Shift mide recto.
+- **Notas en el plano** (tecla N o pestaña Espacios): etiquetas de colores en 2D y 3D.
+- **Lista de compras**: precio y enlace de tienda por mueble (sección «Compra»), total del
+  proyecto y exportación a CSV.
+- **Versiones**: guardar la distribución actual con nombre, compararla con otra y volver a ella.
+- Selección múltiple (Shift o Ctrl + clic, Ctrl + A), alinear y repartir; flechas para
+  mover, Ctrl + D, Ctrl + C / Ctrl + V; avisos con **Deshacer**.
+
+Maqueta:
+- **Paredes según vista**: los muros que dan a la cámara se bajan solos al girar.
+- **Noche** con paredes oscuras y lámparas que iluminan su entorno.
+- Contorno al pasar el mouse, destello al encender una lámpara, vuelo de cámara al elegir
+  un espacio y sonidos para encender, apagar y activar escenas.
+- **Video del recorrido**: una vuelta a la casa o un paseo por los espacios, en MP4 o WebM.
+
+Casa conectada:
+- **Aspiradora robot** (`vacuum.*`), **Philips Hue** directo desde su puente (sin Home
+  Assistant) y búsqueda de Home Assistant en la red.
+- **Vincular por habitación**: propone el equipo real de cada objeto según las áreas de
+  Home Assistant y los nombres.
+- **Diagnóstico**: revisa la conexión, cada vínculo y las órdenes fallidas; copia un informe.
+- **Panel rápido** en la bandeja (clic en el ícono) que se asoma cuando algo cambia desde
+  fuera; el ícono muestra luces encendidas y temperatura.
+- **Control desde el celular**: activar en la bandeja o en «Conectar tu casa real», escanear
+  el QR y usar el panel desde el navegador del teléfono, en el mismo Wi-Fi.
+- **IA que edita la casa**: `get_plan`, `add_room`, `update_room`, `remove_room`, `add_item`,
+  `update_item` y `remove_item`, solo con el permiso «Permitir que la IA edite el plano»;
+  cada cambio se puede deshacer y la actividad se ve en la barra de estado. El acceso puede
+  apagarse solo después de 30 minutos, 1 hora o 4 horas.
+
+`npm run lab` también levanta un puente Hue simulado (escribe «b» para pulsar su botón).
+
 ## Alcance de la versión 0.1
 
 33 entradas de catálogo con modelos paramétricos propios, varios tamaños
@@ -340,7 +379,9 @@ abrir imagen de plano).
 127.0.0.1: token rechazado, token fuera del renderer, vinculación, envío de brillo,
 reflejo de un apagado externo, aire, enchufe, televisor (encendido, volumen en vivo, entrada
 y silencio externo), sensores de temperatura y humedad, sensor de ventana, cortina,
-escenas, reconexión, IA por MCP, segundo piso, calibración del plano y bandeja.
+escenas, reconexión, IA por MCP (también editando el plano), segundo piso, calibración
+del plano, aspiradora, diagnóstico, Philips Hue, vincular por habitación, control desde el
+celular, panel rápido y bandeja.
 
 `npm test` comprueba la traducción de estados y servicios de Home Assistant, el
 cliente WebSocket con un servidor falso, el historial, serialización, dimensiones, deduplicación de paredes,

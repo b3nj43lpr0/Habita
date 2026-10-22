@@ -94,7 +94,13 @@ Avance de 0.9.0: aspiradora robot (`vacuum.*`) en el catálogo, con recorrido an
 piloto de estado, batería, órdenes limpiar/pausar/a la base según `supported_features`, escenas, panel de
 control y laboratorio. Cotas en el plano 2D: cadenas exteriores y total, medidas del objeto elegido y su
 distancia libre a cada muro (en vivo al arrastrar), con botón para ocultarlas.
-Pendiente de 0.9.0: aspiradora por MCP, cámaras, paredes en ángulo, cotas en la imagen exportada y PDF,
+Hecho en 0.9.0 (ideas de house-control, de los videos de referencia y de editores como Sweet Home 3D):
+bandeja con estado y panel rápido, Nueva casa con plantillas, diagnóstico, huincha, notas, lista de
+compras, interacción 3D (contorno, destello, vuelo, sonidos), noche real, paredes según vista, vincular
+por habitación (áreas de HA), búsqueda de HA por mDNS, Philips Hue directo, versiones de la distribución,
+control desde el celular por QR, IA que edita el plano (con permiso y apagado automático) y video del
+recorrido. Pendiente: Tuya / Smart Life por QR, widgets (no aplican en Windows),
+aspiradora por MCP, cámaras, paredes en ángulo, cotas en la imagen exportada y PDF,
 barrido de puertas y circulación.
 Hecho en 0.8.4 (revisión de UI/UX): avisos con Deshacer al eliminar y al deshacer, búsqueda sin tildes,
 barra de selección que no tapa el objeto, Ambiente plegado por defecto (recuerda su estado), zoom junto a los

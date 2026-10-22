@@ -303,7 +303,8 @@ document.getElementById('origin').textContent=location.origin;paint();setInterva
 
 if (require.main === module) {
   const port = Number(process.env.PORT || 8123);
-  startFakeHomeAssistant({ port, log: line => console.log(`[${new Date().toLocaleTimeString('es-CL')}] ${line}`) }).then(lab => {
+  const log = line => console.log(`[${new Date().toLocaleTimeString('es-CL')}] ${line}`);
+  Promise.all([startFakeHomeAssistant({ port, log }), require('./fake-hue.cjs').startFakeHue({ port: Number(process.env.HUE_PORT || 8180), log: line => log(`Hue: ${line}`) })]).then(([lab, hue]) => {
     console.log(`
 Laboratorio de Home Assistant en marcha (dispositivos simulados).
   Página     ${lab.url}
@@ -311,7 +312,11 @@ En Habita: botón del enchufe → Conectar tu casa real
   Dirección  ${lab.url}
   Token      ${lab.token}
 
+Puente Philips Hue simulado en ${hue.host}. Escribe «b» y Enter para pulsar su botón;
+después, en Habita: Philips Hue → dirección ${hue.host} → Vincular.
+
 Ctrl+C lo detiene.`);
+    process.stdin.on('data', data => { if (String(data).trim() === 'b') { hue.pressButton(); log('Hue: botón pulsado (30 s para vincular)'); } });
   }).catch(error => {
     console.error(error.code === 'EADDRINUSE' ? `El puerto ${port} está ocupado. Prueba: PORT=8124 npm run lab` : error);
     process.exit(1);

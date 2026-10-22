@@ -42,12 +42,14 @@ export function shell(project, version) {
      <button id="redo" class="icon-button" title="Rehacer (Ctrl+Y)" aria-label="Rehacer">${icon('redo')}</button>
      <span class="tool-divider"></span>
      <button id="snapshot" class="icon-button" title="Exportar imagen PNG" aria-label="Exportar imagen">${icon('image')}</button>
+     <button id="record-video" class="icon-button" title="Grabar video del recorrido" aria-label="Grabar video del recorrido">${icon('video')}</button>
     </div>
    </div>
    <div class="scene-heading"><span class="overline">Un lugar para imaginar</span><h2>Tu casa, a tu manera.</h2><p>Explora. Mueve. Hazla tuya.</p></div>
    <div class="scene-right">
-    <button id="walls" class="float-button" title="Cambiar visualización de paredes">${icon('layers')}<span>Paredes bajas</span></button>
-    <button id="dimensions-toggle" class="float-button" aria-pressed="true" hidden>${icon('ruler')}<span>Cotas</span></button>
+    <button id="walls" class="float-button" title="Cambiar visualización de paredes">${icon('layers')}<span>Paredes según vista</span></button>
+    <button id="measure-tool" class="float-button" aria-pressed="false" title="Medir entre dos puntos (M)">${icon('ruler')}<span>Medir</span></button>
+    <button id="dimensions-toggle" class="float-button" aria-pressed="true" hidden>${icon('dims')}<span>Cotas</span></button>
     <button id="energy" class="float-button" title="Colorear las habitaciones según su consumo" aria-pressed="false">${icon('bolt')}<span>Consumo</span></button>
     <div class="zoom-controls">
      <button id="zoom-in" aria-label="Acercar" title="Acercar">+</button>
@@ -99,6 +101,6 @@ export const helpDialog = () => `
   <li><strong>Agrega pisos</strong> con el botón + junto a los espacios; la escalera conecta los pisos en el recorrido.</li>
   <li><strong>Importa</strong> el plano de tu casa como imagen desde <strong>Espacios</strong> y calíbralo con una medida conocida.</li>
  </ul>
- <div class="shortcut-list"><span>Ctrl + Z · Deshacer</span><span>Ctrl + Y · Rehacer</span><span>Flechas · Mover (Shift: 50 cm)</span><span>R · Girar</span><span>Ctrl + D · Duplicar</span><span>Ctrl + C / V · Copiar y pegar</span><span>Shift + clic · Elegir varios</span><span>Ctrl + A · Todo el piso</span><span>Supr · Eliminar</span><span>Esc · Cancelar herramienta</span></div>
+ <div class="shortcut-list"><span>Ctrl + Z · Deshacer</span><span>Ctrl + Y · Rehacer</span><span>Flechas · Mover (Shift: 50 cm)</span><span>R · Girar</span><span>Ctrl + D · Duplicar</span><span>Ctrl + C / V · Copiar y pegar</span><span>Shift + clic · Elegir varios</span><span>M · Medir</span><span>Ctrl + A · Todo el piso</span><span>Supr · Eliminar</span><span>Esc · Cancelar herramienta</span></div>
  <p class="library-note">Medidas de muebles orientativas. Esta versión comprueba límites y superposición de objetos; aún no valida circulación, estructura ni normativa.</p>
  <button data-close class="primary full">Empezar a diseñar</button>`;
