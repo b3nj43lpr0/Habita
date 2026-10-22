@@ -3,29 +3,33 @@
 // archivos de imagen dentro del ejecutable.
 const { Tray, Menu, nativeImage } = require('electron');
 
-// Casa de 32×32 px (se muestra a 16 px lógicos) en ámbar sobre fondo transparente.
-function houseIcon() {
+// Casa de 32×32 px (se muestra a 16 px lógicos) en ámbar sobre fondo transparente. Con luces
+// encendidas, la ventana de la casa se ilumina en blanco cálido.
+function houseIcon(lit = false) {
   const size = 32, data = Buffer.alloc(size * size * 4);
   const paint = (x, y, [r, g, b]) => { const i = (y * size + x) * 4; data[i] = b; data[i + 1] = g; data[i + 2] = r; data[i + 3] = 255; };
-  const amber = [255, 179, 107], dark = [36, 42, 54];
+  const amber = [255, 179, 107], dark = [36, 42, 54], glow = [255, 240, 196];
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const roof = y >= 3 && y <= 15 && Math.abs(x - 15.5) <= (y - 3) * 1.2 + 1;
     const body = y > 15 && y <= 28 && x >= 6 && x <= 25;
     const door = y >= 19 && y <= 28 && x >= 13 && x <= 18;
-    if (door) paint(x, y, dark);
+    const window = lit && y >= 9 && y <= 13 && x >= 14 && x <= 17;
+    if (door || window) paint(x, y, window ? glow : dark);
     else if (roof || body) paint(x, y, amber);
   }
   return nativeImage.createFromBitmap(data, { width: size, height: size, scaleFactor: 2 });
 }
 
 function createTray({ show, activateScene, aiAccess, setAiAccess, copyMcpConfig, quit }) {
-  const tray = new Tray(houseIcon());
-  let scenes = [];
+  const icons = { off: houseIcon(false), on: houseIcon(true) };
+  const tray = new Tray(icons.off);
+  let scenes = [], status = null;
   tray.setToolTip('Habita Studio');
 
   function refresh() {
     const enabled = aiAccess();
     tray.setContextMenu(Menu.buildFromTemplate([
+      ...(status ? [{ label: status.text, enabled: false }] : []),
       { label: 'Abrir Habita', click: show },
       { type: 'separator' },
       { label: 'Escenas', enabled: scenes.length > 0, submenu: scenes.length ? scenes.map(scene => ({ label: scene.name, click: () => activateScene(scene.id) })) : [{ label: 'Sin escenas', enabled: false }] },
@@ -44,6 +48,14 @@ function createTray({ show, activateScene, aiAccess, setAiAccess, copyMcpConfig,
     tray,
     refresh,
     setScenes(list) { scenes = list; refresh(); },
+    // Resumen de la casa al pasar el mouse por el ícono y en la primera línea del menú.
+    setStatus(next) {
+      if (status?.text === next.text && status?.lit === next.lit) return;
+      status = next;
+      tray.setToolTip(`Habita · ${next.text}`);
+      tray.setImage(next.lit ? icons.on : icons.off);
+      refresh();
+    },
     notify(title, content) { tray.displayBalloon?.({ title, content, iconType: 'info' }); },
     destroy() { tray.destroy(); }
   };

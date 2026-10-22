@@ -249,6 +249,11 @@ ipcMain.on('tray:scenes', (event, scenes) => {
   tray?.setScenes(scenes.slice(0, 30).filter(s => typeof s?.id === 'string' && typeof s?.name === 'string').map(s => ({ id: s.id, name: s.name.slice(0, 60) })));
 });
 
+ipcMain.on('tray:status', (event, status) => {
+  if (!win || event.sender !== win.webContents || typeof status?.text !== 'string') return;
+  tray?.setStatus({ text: status.text.slice(0, 100), lit: status.lit === true });
+});
+
 app.on('before-quit', () => { quitting = true; });
 app.on('will-quit', () => { require('node:fs').rmSync(aiAccessPath(), { force: true }); aiBridge.stop().catch(() => {}); });
 app.on('window-all-closed', () => { homeAssistant.disconnect(); app.quit(); });

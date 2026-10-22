@@ -342,6 +342,7 @@ ctx.devices = createDevices(ctx, {
     renderStats();
     if (state.energy) ctx.scene.setHeat(ctx.devices.roomPower());
     if (itemIds.length) persist();
+    ctx.aiBridge?.publishStatus();
   },
   onContact: (itemIds, open) => ctx.automations?.contact(itemIds, open)
 });

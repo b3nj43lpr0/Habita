@@ -5,6 +5,7 @@ import { toast } from './dom.js';
 import { clone } from '../model.js';
 import { applyScene } from '../scenes.js';
 import { homeSnapshot, applyLights, applyClimates, applyTvs, findScene } from '../ai-home.js';
+import { homeStatus } from '../home-status.js';
 
 const names = items => items.map(item => item.name).join(', ');
 
@@ -39,8 +40,17 @@ export function createAiBridge(ctx) {
     }
   };
 
+  // Escenas para el menú de la bandeja y el resumen de su ícono (luces encendidas, aire).
+  let lastStatus = '';
   function publishScenes() {
     desktop?.setScenes((state.project.scenes || []).map(scene => ({ id: scene.id, name: scene.name })));
+    publishStatus();
+  }
+  function publishStatus() {
+    const status = homeStatus(state.project), key = JSON.stringify(status);
+    if (!desktop?.setStatus || key === lastStatus) return;
+    lastStatus = key;
+    desktop.setStatus({ text: status.text, lit: status.lit > 0 });
   }
 
   if (desktop) {
@@ -60,5 +70,5 @@ export function createAiBridge(ctx) {
     publishScenes();
   }
 
-  return { publishScenes };
+  return { publishScenes, publishStatus };
 }

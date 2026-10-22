@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('habita', {
     onAiCall: listen('ai:call'),
     aiReply: (id, reply) => ipcRenderer.send('ai:reply', id, reply),
     onScene: listen('tray:scene'),
-    setScenes: scenes => ipcRenderer.send('tray:scenes', scenes)
+    setScenes: scenes => ipcRenderer.send('tray:scenes', scenes),
+    setStatus: status => ipcRenderer.send('tray:status', status)
   }
 });
