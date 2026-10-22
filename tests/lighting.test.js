@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exampleProject,validateProject } from '../src/model.js';
-import { lightFor,lightColor,lampsInRoom } from '../src/lighting.js';
+import { exampleProject,validateProject } from '../src/model/model.js';
+import { lightFor,lightColor,lampsInRoom } from '../src/devices/lighting.js';
 
 test('proyectos anteriores siguen abiertos y las luces se guardan por objeto',()=>{
   const project=exampleProject(),lamp=project.items.find(i=>i.asset==='floor-lamp');

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { homeStatus } from '../src/home-status.js';
-import { makeItem } from '../src/catalog.js';
+import { homeStatus } from '../src/devices/home-status.js';
+import { makeItem } from '../src/model/catalog.js';
 
 test('el resumen de la bandeja cuenta luces encendidas y la temperatura del aire', () => {
   const lamp = makeItem('lamp'), floor = makeItem('floor-lamp'), ac = makeItem('ac');

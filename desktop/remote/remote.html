@@ -62,6 +62,7 @@ async function call(name, args = {}) {
   return reply.result;
 }
 function toast(text) { const t = $('#toast'); t.textContent = text; t.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove('show'), 2600); }
+const modes = { cool: 'Frío', heat: 'Calor', dry: 'Seco', fan: 'Ventilador', auto: 'Automático' };
 const degrees = n => `${Number(n).toLocaleString('es-CL', { maximumFractionDigits: 1 })}°`;
 const lit = l => l.on && l.brightness > 0;
 const inRoom = d => room === 'all' || d.room === room;
@@ -96,7 +97,7 @@ function render() {
    ${home.scenes.length ? `<h2>Escenas</h2><div class="chips">${home.scenes.map(s => `<button class="chip" data-scene="${esc(s.id)}">${esc(s.name)}</button>`).join('')}</div>` : ''}
    ${rooms.length > 1 ? `<h2>Espacios</h2><div class="chips"><button class="chip ${room === 'all' ? 'active' : ''}" data-room="all">Toda la casa</button>${rooms.map(r => `<button class="chip ${room === r ? 'active' : ''}" data-room="${esc(r)}">${esc(r)}</button>`).join('')}</div>` : ''}
    ${lights.length ? `<h2>Luces</h2><div class="grid">${lights.map(l => `<button class="tile ${lit(l) ? 'on' : ''}" data-light="${esc(l.id)}" style="--level:${lit(l) ? l.brightness / 100 : 0}"><i class="fill"></i><b>${esc(l.name)}</b><span>${lit(l) ? `${l.brightness}%` : 'Apagada'}${l.device.linked && !l.device.available ? ' · sin conexión' : ''}</span></button>`).join('')}</div><p class="empty">Toca para encender o apagar; desliza a los lados para atenuar.</p>` : ''}
-   ${acs.length ? `<h2>Climatización</h2>${acs.map(a => `<div class="row"><div class="name">${esc(a.name)}<small>${a.on ? esc(a.mode) : 'Apagado'}${a.device.currentTemperature != null ? ` · ahora ${degrees(a.device.currentTemperature)}` : ''}</small></div>
+   ${acs.length ? `<h2>Climatización</h2>${acs.map(a => `<div class="row"><div class="name">${esc(a.name)}<small>${a.on ? esc(modes[a.mode] || a.mode) : 'Apagado'}${a.device.currentTemperature != null ? ` · ahora ${degrees(a.device.currentTemperature)}` : ''}</small></div>
      <button class="round" data-ac="${esc(a.id)}" data-step="-1" aria-label="Bajar">−</button><span class="value">${degrees(a.target)}</span><button class="round" data-ac="${esc(a.id)}" data-step="1" aria-label="Subir">+</button>
      <button class="round ${a.on ? 'on' : ''}" data-ac-power="${esc(a.id)}" aria-label="Encender o apagar">⏻</button></div>`).join('')}` : ''}
    ${tvs.length ? `<h2>Televisores</h2>${tvs.map(t => `<div class="row"><div class="name">${esc(t.name)}<small>${t.on ? `Volumen ${t.volume}%` : 'Apagado'}</small><input type="range" min="0" max="100" value="${t.volume}" data-tv-volume="${esc(t.id)}" aria-label="Volumen de ${esc(t.name)}"></div><button class="round ${t.on ? 'on' : ''}" data-tv="${esc(t.id)}" aria-label="Encender o apagar">⏻</button></div>`).join('')}` : ''}

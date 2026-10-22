@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shoppingList, shoppingCsv, validPrice, validLink, money } from '../src/shopping.js';
-import { exampleProject, validateProject } from '../src/model.js';
+import { shoppingList, shoppingCsv, validPrice, validLink, money } from '../src/model/shopping.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
 
 test('la lista de compras suma por mueble y se exporta como CSV', () => {
   const project = exampleProject();

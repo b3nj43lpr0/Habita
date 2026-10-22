@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { suggestLinks } from '../src/link-suggest.js';
-import { exampleProject } from '../src/model.js';
-import { isLamp } from '../src/lighting.js';
-import { isClimate } from '../src/climate.js';
-import { isTv } from '../src/tv.js';
+import { suggestLinks } from '../src/devices/link-suggest.js';
+import { exampleProject } from '../src/model/model.js';
+import { isLamp } from '../src/devices/lighting.js';
+import { isClimate } from '../src/devices/climate.js';
+import { isTv } from '../src/devices/tv.js';
 
 const kindFor = item => isLamp(item) ? 'light' : isClimate(item) ? 'climate' : isTv(item) ? 'tv' : null;
 

@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import mapping from '../desktop/ha-mapping.cjs';
 import lab from '../tools/lab/fake-home-assistant.cjs';
-import { exampleProject, validateProject } from '../src/model.js';
-import { makeItem } from '../src/catalog.js';
-import { vacuumFor } from '../src/vacuum.js';
-import { captureScene, applyScene, validScenes } from '../src/scenes.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
+import { makeItem } from '../src/model/catalog.js';
+import { vacuumFor } from '../src/devices/vacuum.js';
+import { captureScene, applyScene, validScenes } from '../src/model/scenes.js';
 
 const { relevant, fromEntity, toVacuumCalls, validVacuumState } = mapping;
 const robot = (state, attributes = {}) => ({ entity_id: 'vacuum.robot', state, attributes: { friendly_name: 'Robot', supported_features: 12380, battery_level: 64, ...attributes } });

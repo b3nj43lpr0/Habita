@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diagnose } from '../src/diagnostics.js';
+import { diagnose } from '../src/devices/diagnostics.js';
 
 const project = { items: [{ id: 'l1', name: 'Lámpara' }, { id: 'l2', name: 'Velador' }, { id: 'tv', name: 'Tele' }, { id: 'l3', name: 'Otra' }], rooms: [{ id: 'r', name: 'Living' }] };
 const kindFor = item => item.id === 'tv' ? 'tv' : 'light';

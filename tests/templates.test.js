@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { templates, templatePreview } from '../src/templates.js';
-import { validateProject, warningsFor, overlaps } from '../src/model.js';
-import { isOpening } from '../src/catalog.js';
-import { inRoom } from '../src/levels.js';
+import { templates, templatePreview } from '../src/model/templates.js';
+import { validateProject, warningsFor, overlaps } from '../src/model/model.js';
+import { isOpening } from '../src/model/catalog.js';
+import { inRoom } from '../src/model/levels.js';
 
 test('cada plantilla es un proyecto válido, sin habitaciones encimadas y con los muebles dentro', () => {
   for (const template of templates) {

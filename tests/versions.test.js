@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { captureVersion, restoreVersion, versionStats } from '../src/versions.js';
-import { exampleProject, validateProject } from '../src/model.js';
+import { captureVersion, restoreVersion, versionStats } from '../src/model/versions.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
 
 test('una versión guarda la distribución y se restaura sin tocar escenas ni plano', () => {
   const project = exampleProject();

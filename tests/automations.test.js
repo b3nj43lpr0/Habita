@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import mapping from '../desktop/ha-mapping.cjs';
-import { exampleProject, validateProject } from '../src/model.js';
-import { validAutomations, dueAutomations, contactAutomations, describeTrigger } from '../src/automations.js';
-import { applyTvs, homeSnapshot } from '../src/ai-home.js';
-import { isTv } from '../src/tv.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
+import { validAutomations, dueAutomations, contactAutomations, describeTrigger } from '../src/model/automations.js';
+import { applyTvs, homeSnapshot } from '../src/devices/ai-home.js';
+import { isTv } from '../src/devices/tv.js';
 
 const withAutomations = () => {
   const project = exampleProject();

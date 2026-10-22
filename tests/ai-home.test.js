@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exampleProject } from '../src/model.js';
-import { makeItem } from '../src/catalog.js';
-import { lightFor } from '../src/lighting.js';
-import { climateFor } from '../src/climate.js';
-import { captureScene } from '../src/scenes.js';
-import { homeSnapshot, applyLights, applyClimates, findScene } from '../src/ai-home.js';
+import { exampleProject } from '../src/model/model.js';
+import { makeItem } from '../src/model/catalog.js';
+import { lightFor } from '../src/devices/lighting.js';
+import { climateFor } from '../src/devices/climate.js';
+import { captureScene } from '../src/model/scenes.js';
+import { homeSnapshot, applyLights, applyClimates, findScene } from '../src/devices/ai-home.js';
 
 const home = () => {
   const project = exampleProject();

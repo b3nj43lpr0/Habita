@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {canWalkAt,findWalkStart} from '../src/walkthrough.js';
-import {makeItem} from '../src/catalog.js';
+import {canWalkAt,findWalkStart} from '../src/scene3d/walkthrough.js';
+import {makeItem} from '../src/model/catalog.js';
 import * as THREE from 'three';
-import {createWalker} from '../src/walkthrough.js';
+import {createWalker} from '../src/scene3d/walkthrough.js';
 const room=(id,x)=>({id,x,z:0,w:4,d:4});
 const fixture=()=>({rooms:[room('a',0),room('b',4)],items:[],wallThickness:.14,wallHeight:2.6});
 test('el recorrido bloquea paredes y el exterior del piso',()=>{

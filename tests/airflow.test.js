@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { createAirflow } from '../src/airflow.js';
+import { createAirflow } from '../src/scene3d/airflow.js';
 
 const item = { x: 0, z: 0, w: .9, h: .3, d: .24, rotation: 0 };
 const positions = flow => {

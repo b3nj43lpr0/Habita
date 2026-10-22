@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planSnapshot, planTools } from '../src/ai-plan.js';
-import { exampleProject, validateProject } from '../src/model.js';
+import { planSnapshot, planTools } from '../src/devices/ai-plan.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
 
 test('la IA ve el plano con el catálogo y edita espacios y muebles', () => {
   const project = exampleProject();

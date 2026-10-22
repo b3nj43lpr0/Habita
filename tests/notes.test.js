@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validNotes, makeNote } from '../src/notes.js';
-import { exampleProject, validateProject } from '../src/model.js';
+import { validNotes, makeNote } from '../src/model/notes.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
 
 test('las notas del plano se guardan y se validan', () => {
   const project = exampleProject();

@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import mapping from '../desktop/ha-mapping.cjs';
 import client from '../desktop/home-assistant.cjs';
-import { validLight } from '../src/lighting.js';
-import { createHistory } from '../src/app/history.js';
+import { validLight } from '../src/devices/lighting.js';
+import { createHistory } from '../src/ui/history.js';
 
 const { fromEntity, toService, toClimateCalls } = mapping;
 const { HomeAssistantClient, websocketUrl } = client;

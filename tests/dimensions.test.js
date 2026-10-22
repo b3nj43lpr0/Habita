@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planDimensions, dimLabel } from '../src/app/dimensions.js';
-import { makeItem } from '../src/catalog.js';
+import { planDimensions, dimLabel } from '../src/ui/dimensions.js';
+import { makeItem } from '../src/model/catalog.js';
 
 const view = items => ({ rooms: [{ id: 'a', x: 0, z: 0, w: 6, d: 4 }, { id: 'b', x: 4.5, z: 0, w: 3, d: 4 }], items });
 
