@@ -232,7 +232,7 @@ export function createScene(host, callbacks) {
     const coords={nw:[bounds.left,bounds.top],n:[r.x,bounds.top],ne:[bounds.right,bounds.top],e:[bounds.right,r.z],se:[bounds.right,bounds.bottom],s:[r.x,bounds.bottom],sw:[bounds.left,bounds.bottom],w:[bounds.left,r.z],move:[r.x,r.z]};
     const place=(el,x,z,offset=0)=>{const p=new THREE.Vector3(x,.06,z).project(camera);el.style.left=`${(p.x+1)*rect.width/2}px`;el.style.top=`${(1-p.y)*rect.height/2+offset}px`;};
     roomTools.querySelectorAll('[data-handle]').forEach(el=>place(el,...coords[el.dataset.handle]));
-    const size=roomTools.querySelector('.room-live-size');size.textContent=`${r.w.toFixed(2)} × ${r.d.toFixed(2)} m · ${(r.w*r.d).toFixed(2)} m²`;place(size,r.x,bounds.top,-27);
+    const size=roomTools.querySelector('.room-live-size');const n=v=>v.toLocaleString('es-CL',{maximumFractionDigits:2});size.textContent=`${n(r.w)} × ${n(r.d)} m · ${n(Math.round(r.w*r.d*100)/100)} m²`;place(size,r.x,bounds.top,-27);
     place(roomTools.querySelector('.room-edit-feedback'),r.x,bounds.bottom,30);
   }
   let roomGesture=null;

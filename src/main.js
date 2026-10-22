@@ -14,6 +14,7 @@ import { calibratePlan } from './plan.js';
 import { baseLevel, levelLimit, levelsOf, levelOf, onLevel, sameLevel } from './levels.js';
 import { roomCandidate, roomEditError, applyRoomEdit } from './room-edit.js';
 import { createAmbienceUI } from './ambience-ui.js';
+import { createDimensions } from './app/dimensions.js';
 import { createFeedback } from './interaction-feedback.js';
 import { $, esc, fmt, toast, modal, download, scrollHints } from './app/dom.js';
 import { icon } from './app/icons.js';
@@ -60,7 +61,7 @@ const selectedItems = () => state.project.items.filter(o => state.selection.leng
 const history = createHistory();
 const persist = createAutosave(() => state.project);
 const ctx = { state, actions: {} };
-let selectionActions = null, library = null, inspector = null;
+let selectionActions = null, library = null, inspector = null, dimensions = null;
 
 $('#app').innerHTML = shell(state.project, version);
 
@@ -274,6 +275,7 @@ ctx.scene = createScene($('#scene'), {
   frame(camera, rect) {
     // El primer frame del motor ocurre antes de montar la barra contextual.
     selectionActions?.position(camera, rect);
+    dimensions?.render(camera, rect);
     if (state.view !== '2d') return;
     for (const label of $('#room-labels').children) {
       const room = state.project.rooms.find(r => r.id === label.dataset.room);
@@ -323,6 +325,7 @@ focusButton.onclick = () => {
 
 Object.assign(ctx.actions, { selectedItems, alignGroup, checkpoint, changed, select, activateScene, setView, setLevel, addLevel, deleteLevel, renameLevel, startDrawing, startCalibration, rotateItem, duplicateItem, deleteSelected });
 selectionActions = createSelectionActions(ctx);
+dimensions = createDimensions(ctx);
 const showDeviceTip = createDeviceTip($('.viewport'), ctx);
 library = createLibrary(ctx);
 inspector = createInspector(ctx);
@@ -358,7 +361,7 @@ function renderRooms() {
   $('#room-chips').querySelectorAll('[data-room]').forEach(b => b.onclick = () => select(b.dataset.room || null));
   $('#room-chips').querySelectorAll('[data-level]').forEach(b => b.onclick = () => setLevel(b.dataset.level));
   $('#room-chips').querySelector('[data-add-level]').onclick = addLevel;
-  $('#room-labels').innerHTML = project.rooms.map(r => `<span class="room-label" data-room="${esc(r.id)}">${esc(r.name)}<small>${fmt(r.w * r.d)} m²${climate(r) ? ` · ${esc(climate(r))}` : ''}</small></span>`).join('');
+  $('#room-labels').innerHTML = onLevel(project, state.level).rooms.map(r => `<span class="room-label" data-room="${esc(r.id)}">${esc(r.name)}<small>${fmt(r.w)} × ${fmt(r.d)} m · ${fmt(r.w * r.d)} m²${climate(r) ? ` · ${esc(climate(r))}` : ''}</small></span>`).join('');
   $('#room-labels').hidden = state.view !== '2d';
 }
 
@@ -543,6 +546,7 @@ function setView(next) {
   $('#walk-instructions').hidden = next !== 'walk';
   ambienceUI.setView(next);
   updateInsets();
+  dimensions?.refresh();
   selectionActions.render();
   $('#scene-hint').innerHTML = next === '2d'
     ? `${icon('ruler', 14)} Arrastra pisos y muebles <span>·</span> Usa los tiradores para ajustar`

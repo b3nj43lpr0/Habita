@@ -46,6 +46,7 @@ export function shell(project, version) {
    <div class="scene-heading"><span class="overline">Un lugar para imaginar</span><h2>Tu casa, a tu manera.</h2><p>Explora. Mueve. Hazla tuya.</p></div>
    <div class="scene-right">
     <button id="walls" class="float-button" title="Cambiar visualización de paredes">${icon('layers')}<span>Paredes bajas</span></button>
+    <button id="dimensions-toggle" class="float-button" aria-pressed="true" hidden>${icon('ruler')}<span>Cotas</span></button>
     <button id="energy" class="float-button" title="Colorear las habitaciones según su consumo" aria-pressed="false">${icon('bolt')}<span>Consumo</span></button>
     <div class="zoom-controls">
      <button id="zoom-in" aria-label="Acercar" title="Acercar">+</button>

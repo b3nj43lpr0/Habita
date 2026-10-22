@@ -84,3 +84,18 @@ button:focus-visible{outline:2px solid #f0c18b;outline-offset:3px}
 .group-tools .icon-button{width:100%;height:38px;border:1px solid #ffffff1c;border-radius:12px;background:#ffffff0b}
 .group-tools .secondary{grid-column:span 1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px}
 .group-tools:has(.secondary){grid-template-columns:1fr 1fr}
+
+/* Cotas del plano 2D. */
+#dimensions{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+#dimensions line{stroke:#d9c7aa;stroke-width:1;stroke-linecap:round}
+#dimensions rect{fill:#1c2238d9;stroke:#ffffff1f}
+#dimensions text{fill:#efe6d6;font-size:11px;font-weight:550;text-anchor:middle;font-variant-numeric:tabular-nums}
+#dimensions .chain line{stroke:#d9c7aa99}
+#dimensions .chain text{fill:#d8cfc0;font-weight:450}
+#dimensions .focus line{stroke:#f0c18b;stroke-width:1.4}
+#dimensions .focus rect{fill:#3a2c1fe6;stroke:#f0c18b66}
+#dimensions .focus text{fill:#ffe2bd}
+#dimensions .clearance line{stroke:#8fc3ff;stroke-dasharray:4 4}
+#dimensions .clearance rect{fill:#16264ae6;stroke:#8fc3ff55}
+#dimensions .clearance text{fill:#d7e8ff}
+#dimensions-toggle[aria-pressed=true]{border-color:#f0c18b80;color:#fff}

@@ -92,7 +92,9 @@ No adaptado: isla bajo el notch, widgets y app de iPhone (exclusivos de Apple). 
 de puertas y circulación; 1.0.0 sol real, exterior, modelos GLB y texturas CC0.
 Avance de 0.9.0: aspiradora robot (`vacuum.*`) en el catálogo, con recorrido animado por su habitación,
 piloto de estado, batería, órdenes limpiar/pausar/a la base según `supported_features`, escenas, panel de
-control y laboratorio. Pendiente de 0.9.0: aspiradora por MCP, cámaras, paredes en ángulo, cotas y PDF,
+control y laboratorio. Cotas en el plano 2D: cadenas exteriores y total, medidas del objeto elegido y su
+distancia libre a cada muro (en vivo al arrastrar), con botón para ocultarlas.
+Pendiente de 0.9.0: aspiradora por MCP, cámaras, paredes en ángulo, cotas en la imagen exportada y PDF,
 barrido de puertas y circulación.
 Hecho en 0.8.4 (revisión de UI/UX): avisos con Deshacer al eliminar y al deshacer, búsqueda sin tildes,
 barra de selección que no tapa el objeto, Ambiente plegado por defecto (recuerda su estado), zoom junto a los
