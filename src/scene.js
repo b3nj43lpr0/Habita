@@ -35,6 +35,7 @@ export function createScene(host, callbacks) {
   const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.09;controls.maxPolarAngle=Math.PI*.49;controls.minZoom=.3;controls.maxZoom=6;controls.target.set(-.5,0,-.5);
   let focusMotion=null,lightPreviewId=null,climatePreviewId=null;
   const airflows=new Map(),vacuums=new Map();
+  let group=[],groupBoxes=[];
   controls.addEventListener('start',()=>{focusMotion=null;});
   controls.mouseButtons.LEFT=THREE.MOUSE.ROTATE;controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
   controls.rotateSpeed=.65;controls.zoomSpeed=.75;controls.panSpeed=.8;
@@ -203,6 +204,9 @@ export function createScene(host, callbacks) {
     dirty=true;
     updateRoomTools();
     if(selectedBox){scene.remove(selectedBox);selectedBox.geometry.dispose();selectedBox.material.dispose();selectedBox=null;}
+    for(const box of groupBoxes){scene.remove(box);box.geometry.dispose();box.material.dispose();}groupBoxes=[];
+    // Selección múltiple: los demás objetos del grupo llevan un contorno más tenue.
+    for(const other of group){if(other===id)continue;const model=house.children.find(g=>g.userData.itemId===other);if(!model)continue;const box=new THREE.BoxHelper(model,'#c9a77c');box.material.depthTest=false;box.material.transparent=true;box.material.opacity=.75;box.renderOrder=10;scene.add(box);groupBoxes.push(box);}
     const item=project?.items.find(o=>o.id===id),room=project?.rooms.find(o=>o.id===id);
     if(isLamp(item)&&lightFor(item).on&&lightFor(item).brightness>0&&!house.children.some(n=>n.isPointLight&&n.userData.lightFor===id)){
       const lights=house.children.filter(n=>n.isPointLight);
@@ -269,7 +273,7 @@ export function createScene(host, callbacks) {
     const h=hit(event),id=h?.object.userData.itemId;
     if(mode==='2d'&&!id&&planMesh&&!planMesh.userData.locked&&raycaster.intersectObject(planMesh).length){planDrag={x:p.x,z:p.z,active:false};controls.enabled=false;renderer.domElement.setPointerCapture(event.pointerId);return;}
     if(mode==='2d'&&!id&&h?.object.userData.roomId){beginRoomGesture(event,h.object.userData.roomId,'move');start=null;return;}
-    if(id){dragId=id;const item=project.items.find(o=>o.id===id);offset={x:item.x-p.x,z:item.z-p.z};controls.enabled=false;renderer.domElement.setPointerCapture(event.pointerId);callbacks.select(id);}
+    if(id){dragId=id;const item=project.items.find(o=>o.id===id);offset={x:item.x-p.x,z:item.z-p.z};controls.enabled=false;renderer.domElement.setPointerCapture(event.pointerId);callbacks.select(id,{additive:event.shiftKey||event.ctrlKey||event.metaKey});}
     else dragId=null;
   },true);
   renderer.domElement.addEventListener('pointermove',event=>{
@@ -318,7 +322,8 @@ export function createScene(host, callbacks) {
     previewClimate(id,state){climatePreviewId=id;applyClimateState(id,state);},
     previewCover(id,state){applyCoverState(id,state);},
     previewVacuum(id,state){applyVacuumState(id,state);},
-    moveItem(item){const model=house.children.find(o=>o.userData.itemId===item.id);if(!model)return;model.position.set(item.x,baseY(item),item.z);model.rotation.y=item.rotation*Math.PI/180;for(const o of house.children.filter(o=>o.userData.lightFor===item.id))o.position.set(item.x,baseY(item)+item.h*.84,item.z);airflows.get(item.id)?.place();const v=vacuums.get(item.id);if(v)v.offset={x:0,z:0};setSelection(item.id);},
+    setGroup(ids){group=ids;setSelection(selected);},
+    moveItem(item){const model=house.children.find(o=>o.userData.itemId===item.id);if(!model)return;model.position.set(item.x,baseY(item),item.z);model.rotation.y=item.rotation*Math.PI/180;for(const o of house.children.filter(o=>o.userData.lightFor===item.id))o.position.set(item.x,baseY(item)+item.h*.84,item.z);airflows.get(item.id)?.place();const v=vacuums.get(item.id);if(v)v.offset={x:0,z:0};if(group.includes(item.id)){selectedBox?.update?.();groupBoxes.forEach(b=>b.update());dirty=true;}else setSelection(item.id);},
     lockWalk(){walker.lock();},
     freeWalk(){walker.free();},
     wallMode(value){wallMode=value;rebuild(project);},

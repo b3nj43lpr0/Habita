@@ -97,8 +97,9 @@ barrido de puertas y circulación.
 Hecho en 0.8.4 (revisión de UI/UX): avisos con Deshacer al eliminar y al deshacer, búsqueda sin tildes,
 barra de selección que no tapa el objeto, Ambiente plegado por defecto (recuerda su estado), zoom junto a los
 botones flotantes, encuadre según el espacio libre, categorías en una fila, inspector que aplica al confirmar
-cada campo, flechas para mover, Ctrl+D, Ctrl+C / Ctrl+V y textos de al menos 10,5 px. Pendiente de la
-revisión: selección múltiple, punto de partida del recorrido y ordenar el CSS en capas.
+cada campo, flechas para mover, Ctrl+D, Ctrl+C / Ctrl+V y textos de al menos 10,5 px. También:
+selección múltiple (Shift o Ctrl + clic, Ctrl + A) con arrastre en grupo, alinear y repartir, y recorrido que
+parte en la habitación más grande mirando hacia su centro. Pendiente de la revisión: ordenar el CSS en capas.
 
 ### Alcance original
 

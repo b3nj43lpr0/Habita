@@ -97,6 +97,6 @@ export const helpDialog = () => `
   <li><strong>Agrega pisos</strong> con el botón + junto a los espacios; la escalera conecta los pisos en el recorrido.</li>
   <li><strong>Importa</strong> el plano de tu casa como imagen desde <strong>Espacios</strong> y calíbralo con una medida conocida.</li>
  </ul>
- <div class="shortcut-list"><span>Ctrl + Z · Deshacer</span><span>Ctrl + Y · Rehacer</span><span>Flechas · Mover (Shift: 50 cm)</span><span>R · Girar</span><span>Ctrl + D · Duplicar</span><span>Ctrl + C / V · Copiar y pegar</span><span>Supr · Eliminar</span><span>Esc · Cancelar herramienta</span></div>
+ <div class="shortcut-list"><span>Ctrl + Z · Deshacer</span><span>Ctrl + Y · Rehacer</span><span>Flechas · Mover (Shift: 50 cm)</span><span>R · Girar</span><span>Ctrl + D · Duplicar</span><span>Ctrl + C / V · Copiar y pegar</span><span>Shift + clic · Elegir varios</span><span>Ctrl + A · Todo el piso</span><span>Supr · Eliminar</span><span>Esc · Cancelar herramienta</span></div>
  <p class="library-note">Medidas de muebles orientativas. Esta versión comprueba límites y superposición de objetos; aún no valida circulación, estructura ni normativa.</p>
  <button data-close class="primary full">Empezar a diseñar</button>`;

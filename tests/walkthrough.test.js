@@ -19,6 +19,15 @@ test('el recorrido evita muebles y encuentra un punto de inicio libre',()=>{
   assert.equal(canWalkAt(p,0,0),false);const start=findWalkStart(p,'a');assert.ok(start);assert.equal(canWalkAt(p,start.x,start.z),true);
   p.rooms=[];assert.equal(findWalkStart(p),null);
 });
+test('sin habitación elegida, el recorrido parte en la más grande mirando hacia su centro',()=>{
+  const p={rooms:[{id:'a',x:0,z:0,w:3,d:3},{id:'b',x:5,z:0,w:6,d:5}],items:[],wallThickness:.14,wallHeight:2.6};
+  const start=findWalkStart(p);
+  assert.ok(start.x>2&&start.x<8,'en la habitación grande');
+  // Mirar hacia el centro: la dirección de avance (-sin yaw, -cos yaw) apunta a él.
+  const toCenter=Math.atan2(5-start.x,0-start.z),forward=Math.atan2(-Math.sin(start.yaw),-Math.cos(start.yaw));
+  assert.ok(Math.abs(toCenter-forward)<1e-9);
+  assert.ok(findWalkStart(p,'a').x<2,'la habitación elegida manda');
+});
 test('WASD avanza 1,8 metros por segundo, sin acelerar en diagonal, y se detiene al soltar',()=>{
   const oldDocument=globalThis.document,oldWindow=globalThis.window;
   const doc=new EventTarget(),win=new EventTarget(),canvas={};doc.pointerLockElement=canvas;
@@ -27,10 +36,11 @@ test('WASD avanza 1,8 metros por segundo, sin acelerar en diagonal, y se detiene
     const camera=new THREE.PerspectiveCamera(),walker=createWalker(canvas,camera,()=>{});
     const p={rooms:[{id:'a',x:0,z:0,w:20,d:20}],items:[],wallHeight:2.6,wallThickness:.14};
     assert.equal(walker.enter(p),true);
+    const start=camera.position.clone();
     const key=(type,code)=>{const e=new Event(type);Object.defineProperty(e,'code',{value:code});doc.dispatchEvent(e);};
     key('keydown','KeyW');key('keydown','KeyD');
     for(let i=0;i<60;i++)walker.update(1/60);
-    assert.ok(Math.abs(Math.hypot(camera.position.x,camera.position.z)-1.8)<.0001);
+    assert.ok(Math.abs(Math.hypot(camera.position.x-start.x,camera.position.z-start.z)-1.8)<.0001);
     assert.equal(camera.position.y,1.65);
     key('keyup','KeyW');key('keyup','KeyD');const before=camera.position.clone();walker.update(.05);assert.ok(camera.position.equals(before));
     assert.equal(findWalkStart({...p,wallHeight:1.5}),null);

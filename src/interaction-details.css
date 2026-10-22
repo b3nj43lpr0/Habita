@@ -75,3 +75,12 @@ button:focus-visible{outline:2px solid #f0c18b;outline-offset:3px}
 
 /* Botones pequeños de la barra de estado: un área de clic más cómoda. */
 #sound-toggle,#snap,.device-status{min-height:26px;padding-top:4px;padding-bottom:4px}
+
+/* Selección múltiple en el inspector. */
+.group-hint{margin:6px 0 14px;color:#bdc6dc;font-size:12px;line-height:1.45}
+.group-list{display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow:auto;margin-bottom:6px}
+.group-list button{border:1px solid #ffffff1f;border-radius:10px;background:#ffffff0d;padding:6px 9px;font-size:11.5px;color:#e6e9f5}
+.group-tools{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 12px}
+.group-tools .icon-button{width:100%;height:38px;border:1px solid #ffffff1c;border-radius:12px;background:#ffffff0b}
+.group-tools .secondary{grid-column:span 1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px}
+.group-tools:has(.secondary){grid-template-columns:1fr 1fr}

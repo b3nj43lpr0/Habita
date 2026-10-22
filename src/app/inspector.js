@@ -91,6 +91,32 @@ export function createInspector(ctx) {
      </div>`;
   }
 
+  // Varios objetos elegidos: lista, alinear y repartir, y las acciones que valen para todos.
+  function renderGroup(container) {
+    const items = actions.selectedItems();
+    const aligns = [['left', 'Alinear a la izquierda'], ['center-x', 'Centrar en horizontal'], ['right', 'Alinear a la derecha'],
+      ['top', 'Alinear arriba'], ['center-z', 'Centrar en vertical'], ['bottom', 'Alinear abajo']];
+    const iconFor = { 'center-x': 'align-center', 'center-z': 'align-middle', left: 'align-left', right: 'align-right', top: 'align-top', bottom: 'align-bottom' };
+    container.innerHTML = `
+     <div class="inspector-heading"><h2>${items.length} objetos seleccionados</h2><button id="deselect" class="icon-button" aria-label="Cerrar selección">${icon('close', 16)}</button></div>
+     <p class="group-hint">Arrástralos o muévelos con las flechas: se mueven juntos. Shift + clic suma o quita un objeto.</p>
+     <div class="group-list">${items.map(o => `<button data-pick="${esc(o.id)}" title="Elegir solo ${esc(o.name)}">${esc(o.name)}</button>`).join('')}</div>
+     <div class="property-section"><h3>Alinear</h3>
+      <div class="group-tools">${aligns.map(([mode, label]) => `<button class="icon-button" data-align="${mode}" aria-label="${label}" title="${label}">${icon(iconFor[mode], 18)}</button>`).join('')}</div>
+      ${items.length > 2 ? `<h3>Repartir</h3><div class="group-tools"><button class="secondary" data-align="spread-x">${icon('spread-x', 16)} A lo ancho</button><button class="secondary" data-align="spread-z">${icon('spread-z', 16)} A lo largo</button></div>` : ''}
+     </div>
+     <div class="object-actions">
+      <button id="rotate-item" class="secondary" title="Girar cada objeto 90 grados (R)">${icon('rotate', 16)} Girar</button><button id="duplicate-item" class="secondary" title="Duplicar (Ctrl + D)">${icon('copy', 16)} Duplicar</button>
+      <button id="delete-item" class="danger">${icon('trash', 16)} Eliminar ${items.length} objetos</button>
+     </div>`;
+    $('#deselect').onclick = () => actions.select(null);
+    $('#rotate-item').onclick = actions.rotateItem;
+    $('#duplicate-item').onclick = actions.duplicateItem;
+    $('#delete-item').onclick = actions.deleteSelected;
+    container.querySelectorAll('[data-align]').forEach(b => b.onclick = () => actions.alignGroup(b.dataset.align));
+    container.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { actions.select(null); actions.select(b.dataset.pick); });
+  }
+
   function mountRoomTip(container, room) {
     const tip = document.createElement('div');
     tip.className = 'room-edit-tip';
@@ -226,6 +252,7 @@ export function createInspector(ctx) {
     // Modo control: el panel de equipos al estilo house-control, sin edición.
     if (state.control) { ctx.controlPanel.render(container); return; }
 
+    if (state.selection.length > 1) { renderGroup(container); return; }
     if (!item && !room) container.innerHTML = projectSummary();
     else {
       container.innerHTML = properties(item, room, asset, item ? warningsFor(item, project) : []);

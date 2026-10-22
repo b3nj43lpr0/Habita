@@ -22,10 +22,20 @@ export function canWalkAt(project,x,z,radius=.2,solids=walkSolids(project)){
   }
   return !solids.some(o=>circleRect(x,z,radius,o.x,o.z,o.w,o.d,o.rotation||0));
 }
+// Punto de partida del recorrido: la habitación elegida o, si no, la más grande. Se parte desde el
+// rincón libre más alejado del centro (a 60 cm de los muros) mirando hacia el centro, para ver la
+// habitación entera en vez de una pared. yaw sigue la convención de la cámara del recorrido.
 export function findWalkStart(project,preferredRoom){
   if(project.wallHeight<1.85)return null;
-  const solids=walkSolids(project),rooms=[...project.rooms].sort((a,b)=>(b.id===preferredRoom?1:0)-(a.id===preferredRoom?1:0));
+  const solids=walkSolids(project),rooms=[...project.rooms].sort((a,b)=>(b.id===preferredRoom?1:0)-(a.id===preferredRoom?1:0)||b.w*b.d-a.w*a.d);
+  const facing=(r,x,z)=>Math.atan2(-(r.x-x),-(r.z-z));
   for(const r of rooms){
+    let best=null;
+    for(let z=r.z-r.d/2+.6;z<=r.z+r.d/2-.6;z+=.3)for(let x=r.x-r.w/2+.6;x<=r.x+r.w/2-.6;x+=.3){
+      const far=Math.hypot(x-r.x,z-r.z);
+      if(far>(best?.far??-1)&&canWalkAt(project,x,z,.2,solids))best={x,z,far};
+    }
+    if(best&&best.far>.3)return {x:best.x,z:best.z,yaw:facing(r,best.x,best.z)};
     if(canWalkAt(project,r.x,r.z,.2,solids))return {x:r.x,z:r.z};
     for(let z=r.z-r.d/2+.35;z<r.z+r.d/2-.25;z+=.35)for(let x=r.x-r.w/2+.35;x<r.x+r.w/2-.25;x+=.35)if(canWalkAt(project,x,z,.2,solids))return {x,z};
   }
@@ -61,7 +71,7 @@ export function createWalker(canvas,camera,onLockChange,onMove){
   });
   document.addEventListener('keyup',event=>keys.delete(event.code));window.addEventListener('blur',clear);
   return {
-    enter(data,preferredRoom,floor=0){const start=findWalkStart(data,preferredRoom);if(!start)return false;project=data;solids=walkSolids(data);base=floor;camera.position.set(start.x,base+1.65,start.z);yaw=-Math.PI*.65;pitch=-.12;camera.rotation.set(pitch,yaw,0);active=true;freeMode=false;looking=false;clear();onLockChange(false);return true;},
+    enter(data,preferredRoom,floor=0){const start=findWalkStart(data,preferredRoom);if(!start)return false;project=data;solids=walkSolids(data);base=floor;camera.position.set(start.x,base+1.65,start.z);yaw=start.yaw??-Math.PI*.65;pitch=-.12;camera.rotation.set(pitch,yaw,0);active=true;freeMode=false;looking=false;clear();onLockChange(false);return true;},
     setProject(data,floor=base){project=data;solids=walkSolids(data);base=floor;camera.position.y=base+1.65;},
     place(x,z){camera.position.x=x;camera.position.z=z;},
     lock(){if(!active)return;try{const promise=canvas.requestPointerLock();promise?.catch(()=>onLockChange(false));}catch{onLockChange(false);}},

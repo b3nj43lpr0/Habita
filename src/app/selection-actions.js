@@ -32,6 +32,21 @@ export function createSelectionActions(ctx) {
     // En modo control los equipos se controlan en la hoja del panel, no en la barra.
     bar.hidden = !item || state.view === 'walk' || state.control;
     if (bar.hidden) return;
+    // En grupo la barra no muestra controles de equipos: solo las acciones que valen para todos.
+    const many = state.selection.length;
+    if (many > 1) {
+      bar.classList.remove('with-light');
+      bar.innerHTML = `
+       <strong>${many} objetos</strong>
+       <button data-action="rotate" aria-label="Girar objetos" title="Girar 90°">${icon('rotate', 16)}</button>
+       <button data-action="duplicate" aria-label="Duplicar objetos" title="Duplicar">${icon('copy', 16)}</button>
+       <button data-action="close" aria-label="Cerrar selección" title="Cerrar selección">${icon('close', 16)}</button>`;
+      bar.querySelector('[data-action="rotate"]').onclick = actions.rotateItem;
+      bar.querySelector('[data-action="duplicate"]').onclick = actions.duplicateItem;
+      bar.querySelector('[data-action="close"]').onclick = () => actions.select(null);
+      if (camera) position(camera, rect);
+      return;
+    }
     bar.innerHTML = `
      <strong>${esc(item.name)}</strong>
      <button data-action="focus" aria-label="Centrar objeto" title="Centrar objeto">${icon('focus', 16)}</button>

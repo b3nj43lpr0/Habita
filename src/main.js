@@ -50,8 +50,13 @@ const state = {
   walkLocked: false,
   control: false,
   energy: false,
+  // Selección múltiple (Shift o Ctrl + clic, Ctrl + A): ids de los objetos del grupo; vacía si hay uno
+  // solo. state.selected sigue siendo el objeto principal, el que muestra la barra de acciones.
+  selection: [],
   roomDragOriginal: null
 };
+// Objetos sobre los que actúan las órdenes: el grupo si lo hay; si no, el objeto seleccionado.
+const selectedItems = () => state.project.items.filter(o => state.selection.length > 1 ? state.selection.includes(o.id) : o.id === state.selected);
 const history = createHistory();
 const persist = createAutosave(() => state.project);
 const ctx = { state, actions: {} };
@@ -131,6 +136,9 @@ function renameLevel(id, name) {
 
 function changed() {
   syncLevel();
+  state.selection = state.selection.filter(id => state.project.items.some(o => o.id === id));
+  if (state.selection.length < 2) state.selection = [];
+  ctx.scene.setGroup(state.selection);
   ctx.devices.applyLive();
   ctx.scene.rebuild(state.project, state.selected);
   inspector.render();
@@ -152,7 +160,15 @@ function activateScene(scene, message = `Escena «${scene.name}» activada.`) {
   toast(message);
 }
 
-function select(id) {
+function select(id, { additive = false } = {}) {
+  const isItem = key => !!key && state.project.items.some(o => o.id === key);
+  if (additive && isItem(id) && isItem(state.selected)) {
+    const group = new Set(state.selection.length ? state.selection : [state.selected]);
+    if (group.has(id)) { group.delete(id); id = [...group].at(-1) ?? null; } else group.add(id);
+    state.selection = group.size > 1 ? [...group] : [];
+  } else if (!state.selection.includes(id)) state.selection = [];
+  // Pulsar un objeto del grupo conserva el grupo, para poder arrastrarlo entero.
+  ctx.scene.setGroup(state.selection);
   if (id && id !== state.selected) ctx.feedback.play();
   // Elegir algo de otro piso (por ejemplo desde la lista de luces) cambia al piso donde está.
   const target = state.project.items.find(o => o.id === id) || state.project.rooms.find(r => r.id === id);
@@ -181,12 +197,14 @@ ctx.scene = createScene($('#scene'), {
   move(id, x, z) {
     if (state.control) return;
     const item = state.project.items.find(o => o.id === id);
-    item.x = snap(x, state.snapping);
-    item.z = snap(z, state.snapping);
-    if (isOpening(item)) {
-      alignOpening(item, state.project);
+    // En grupo, todos se mueven lo mismo que el objeto arrastrado y conservan su distancia.
+    const dx = snap(x, state.snapping) - item.x, dz = snap(z, state.snapping) - item.z;
+    const moving = state.selection.includes(id) ? selectedItems() : [item];
+    for (const o of moving) { o.x = round(o.x + dx); o.z = round(o.z + dz); }
+    if (moving.some(isOpening)) {
+      moving.filter(isOpening).forEach(o => alignOpening(o, state.project));
       ctx.scene.rebuild(state.project, id);
-    } else ctx.scene.moveItem(item);
+    } else moving.forEach(o => ctx.scene.moveItem(o));
     inspector.render();
   },
   endDrag() { renderStats(); persist(); },
@@ -303,7 +321,7 @@ focusButton.onclick = () => {
   ctx.feedback.play();
 };
 
-Object.assign(ctx.actions, { checkpoint, changed, select, activateScene, setView, setLevel, addLevel, deleteLevel, renameLevel, startDrawing, startCalibration, rotateItem, duplicateItem, deleteSelected });
+Object.assign(ctx.actions, { selectedItems, alignGroup, checkpoint, changed, select, activateScene, setView, setLevel, addLevel, deleteLevel, renameLevel, startDrawing, startCalibration, rotateItem, duplicateItem, deleteSelected });
 selectionActions = createSelectionActions(ctx);
 const showDeviceTip = createDeviceTip($('.viewport'), ctx);
 library = createLibrary(ctx);
@@ -359,7 +377,8 @@ function undo(redo = false) {
   const previous = redo ? history.redo(clone(state.project)) : history.undo(clone(state.project));
   if (!previous) return;
   state.project = previous;
-  // La selección se conserva si el objeto o la habitación sigue existiendo.
+  // La selección se conserva si el objeto o la habitación sigue existiendo (el grupo, no).
+  state.selection = [];
   if (![...state.project.items, ...state.project.rooms].some(o => o.id === state.selected)) state.selected = null;
   $('#project-name').value = state.project.name;
   stopDrawing();
@@ -368,31 +387,76 @@ function undo(redo = false) {
   toast(redo ? 'Cambio rehecho.' : 'Cambio deshecho.', { label: redo ? 'Deshacer' : 'Rehacer', run: () => undo(!redo) });
 }
 
+// En grupo, cada objeto gira sobre su propio centro; las puertas y ventanas siguen a su pared.
 function rotateItem() {
-  const item = state.project.items.find(o => o.id === state.selected);
-  if (!item) return;
-  if (isOpening(item)) { toast('Las puertas y ventanas se orientan automáticamente a la pared.'); return; }
+  const items = selectedItems(), turning = items.filter(o => !isOpening(o));
+  if (!items.length) return;
+  if (!turning.length) { toast('Las puertas y ventanas se orientan automáticamente a la pared.'); return; }
   checkpoint();
-  item.rotation = (item.rotation + 90) % 360;
+  for (const item of turning) item.rotation = (item.rotation + 90) % 360;
   changed();
 }
 
-function duplicateItem() {
-  const item = state.project.items.find(o => o.id === state.selected);
-  if (!item) return;
+// Copias desplazadas 40 cm; con un grupo, el grupo de copias queda seleccionado.
+function placeCopies(sources, level = null) {
   checkpoint();
-  const copy = { ...clone(item), id: crypto.randomUUID(), x: round(item.x + .4), z: round(item.z + .4) };
-  if (isOpening(copy)) alignOpening(copy, state.project);
-  state.project.items.push(copy);
-  state.selected = copy.id;
+  const copies = sources.map(item => {
+    const copy = { ...clone(item), id: crypto.randomUUID(), x: round(item.x + .4), z: round(item.z + .4) };
+    if (level) { if (level !== baseLevel) copy.level = level; else delete copy.level; }
+    if (isOpening(copy)) alignOpening(copy, state.project);
+    return copy;
+  });
+  state.project.items.push(...copies);
+  state.selection = copies.length > 1 ? copies.map(c => c.id) : [];
+  state.selected = copies.at(-1).id;
   changed();
+  return copies;
+}
+
+function duplicateItem() {
+  const items = selectedItems();
+  if (items.length) placeCopies(items);
+}
+
+// Alinear o repartir el grupo según el contorno de cada objeto en planta (girado). En el plano,
+// «arriba» es hacia el fondo (−z).
+function alignGroup(mode) {
+  const items = selectedItems().filter(o => !isOpening(o));
+  if (items.length < 2) return;
+  const half = o => {
+    const a = o.rotation * Math.PI / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+    return { x: o.w / 2 * c + o.d / 2 * s, z: o.w / 2 * s + o.d / 2 * c };
+  };
+  const axis = ['left', 'center-x', 'right', 'spread-x'].includes(mode) ? 'x' : 'z';
+  const min = Math.min(...items.map(o => o[axis] - half(o)[axis])), max = Math.max(...items.map(o => o[axis] + half(o)[axis]));
+  checkpoint();
+  if (mode.startsWith('spread')) {
+    // Mismo espacio libre entre objetos, de un extremo al otro.
+    const sorted = [...items].sort((a, b) => a[axis] - b[axis]);
+    const gap = (max - min - sorted.reduce((n, o) => n + half(o)[axis] * 2, 0)) / (sorted.length - 1);
+    let at = min;
+    for (const o of sorted) { o[axis] = round(at + half(o)[axis]); at += half(o)[axis] * 2 + gap; }
+  } else for (const o of items) {
+    const h = half(o)[axis];
+    o[axis] = round(['left', 'top'].includes(mode) ? min + h : ['right', 'bottom'].includes(mode) ? max - h : (min + max) / 2);
+  }
+  changed();
+}
+
+// Ctrl + A: todos los objetos del piso activo.
+function selectAll() {
+  const ids = onLevel(state.project, state.level).items.map(o => o.id);
+  if (!ids.length) return;
+  state.selection = ids.length > 1 ? ids : [];
+  select(ids.at(-1));
+  toast(`${ids.length} ${ids.length === 1 ? 'objeto seleccionado' : 'objetos seleccionados'}. Arrastra uno para moverlos juntos.`);
 }
 
 // Mover con las flechas: 10 cm (1 cm sin ajuste a la cuadrícula, 50 cm con Shift). Las pulsaciones
 // seguidas sobre el mismo objeto cuentan como un solo paso de Deshacer.
 let lastNudge = { id: null, time: 0 };
 function nudgeItem(arrow, large) {
-  const item = state.project.items.find(o => o.id === state.selected);
+  const items = selectedItems(), item = items.at(-1);
   if (!item) return false;
   const { right, up } = ctx.scene.screenAxes();
   const step = large ? .5 : state.snapping ? .1 : .01;
@@ -400,36 +464,40 @@ function nudgeItem(arrow, large) {
   const now = performance.now();
   if (lastNudge.id !== item.id || now - lastNudge.time > 1500) checkpoint();
   lastNudge = { id: item.id, time: now };
-  item.x = round(item.x + dx * step);
-  item.z = round(item.z + dz * step);
-  if (isOpening(item)) alignOpening(item, state.project);
+  for (const o of items) {
+    o.x = round(o.x + dx * step);
+    o.z = round(o.z + dz * step);
+    if (isOpening(o)) alignOpening(o, state.project);
+  }
   changed();
   return true;
 }
 
-// Portapapeles propio: copia el objeto seleccionado y lo pega junto al original (o al centro de la
-// vista si el original ya no existe), en el piso activo.
-let clipboard = null;
+// Portapapeles propio: copia lo seleccionado y lo pega 40 cm más allá, en el piso activo. Pegar
+// varias veces deja cada copia junto a la anterior.
+let clipboard = [];
 function copyItem() {
-  const item = state.project.items.find(o => o.id === state.selected);
-  if (!item) return;
-  clipboard = clone(item);
-  toast(`«${item.name}» copiado. Pégalo con Ctrl + V.`);
+  const items = selectedItems();
+  if (!items.length) return;
+  clipboard = clone(items);
+  toast(items.length === 1 ? `«${items[0].name}» copiado. Pégalo con Ctrl + V.` : `${items.length} objetos copiados. Pégalos con Ctrl + V.`);
 }
 function pasteItem() {
-  if (!clipboard) return;
-  checkpoint();
-  const copy = { ...clone(clipboard), id: crypto.randomUUID(), x: round(clipboard.x + .4), z: round(clipboard.z + .4) };
-  if (state.level !== baseLevel) copy.level = state.level; else delete copy.level;
-  if (isOpening(copy)) alignOpening(copy, state.project);
-  state.project.items.push(copy);
-  clipboard = copy;
-  state.selected = copy.id;
-  changed();
+  if (clipboard.length) clipboard = clone(placeCopies(clipboard, state.level));
 }
 
 function deleteSelected() {
   if (!state.selected) return;
+  if (state.selection.length > 1) {
+    const ids = new Set(state.selection);
+    checkpoint();
+    state.project.items = state.project.items.filter(o => !ids.has(o.id));
+    state.selection = [];
+    state.selected = null;
+    changed();
+    toast(`Se eliminaron ${ids.size} objetos.`, { label: 'Deshacer', run: () => undo() });
+    return;
+  }
   const room = state.project.rooms.find(r => r.id === state.selected);
   const target = room || state.project.items.find(o => o.id === state.selected);
   const remove = () => {
@@ -658,7 +726,11 @@ $('#control-mode').onclick = () => {
 };
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') { stopDrawing(); return; }
+  if (event.key === 'Escape') {
+    if (!state.drawing && state.selection.length && !$('#dialog').open) select(null);
+    stopDrawing();
+    return;
+  }
   if (state.view === 'walk' || state.control) return;
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName) || $('#dialog').open) return;
   const key = event.key.toLowerCase(), command = event.ctrlKey || event.metaKey;
@@ -666,6 +738,7 @@ document.addEventListener('keydown', event => {
   else if (command && key === 'y') { event.preventDefault(); undo(true); }
   else if (command && key === 's') { event.preventDefault(); $('#save').click(); }
   else if (command && key === 'd') { event.preventDefault(); duplicateItem(); }
+  else if (command && key === 'a') { event.preventDefault(); selectAll(); }
   else if (command && key === 'c') copyItem();
   else if (command && key === 'v') { event.preventDefault(); pasteItem(); }
   else if (event.key.startsWith('Arrow') && !command && !event.altKey) { if (nudgeItem(event.key, event.shiftKey)) event.preventDefault(); }
