@@ -6,15 +6,52 @@ Funciona en tu computador, sin cuentas ni servicios en la nube.
 
 ![Maqueta 3D de Habita Studio](docs/capturas/maqueta-3d.jpg)
 
-## Descargar
+## Instalar en Windows
 
-1. Entra a [Releases](https://github.com/b3nj43lpr0/Habita/releases/latest) y descarga
-   **Habita-Studio-Setup-…exe**.
-2. Ábrelo con doble clic: Habita se instala y queda en el escritorio y en el menú Inicio.
+No necesitas saber de computación ni crear una cuenta. Son tres pasos:
 
-Si Windows muestra «Windows protegió su PC», pulsa **Más información → Ejecutar de todas
-formas** (el programa no está firmado). ¿Sin instalar? Descarga el **Habita-Studio-…exe** sin
-«Setup»: es portable y se abre directo.
+1. **Descarga el instalador.** Entra a la página de
+   [descargas (Releases)](https://github.com/b3nj43lpr0/Habita/releases/latest) y, en la
+   sección **Assets**, haz clic en el archivo que empieza con **Habita-Studio-Setup** y termina
+   en `.exe` (por ejemplo `Habita-Studio-Setup-0.9.0.exe`). Se guardará en tu carpeta
+   **Descargas**.
+2. **Ábrelo con doble clic.** Lo encuentras en **Descargas** o en el aviso de descarga del
+   navegador. No hay que elegir opciones ni pedir permisos de administrador.
+3. **Listo.** Habita Studio se abre solo y queda un acceso directo en el **escritorio** y en el
+   **menú Inicio** para las próximas veces.
+
+### Si aparece «Windows protegió su PC»
+
+La primera vez, Windows puede mostrar una ventana azul que dice **«Windows protegió su PC»**.
+Aparece porque el programa es nuevo y no tiene una firma comercial, no porque se haya encontrado
+un problema. Para seguir:
+
+1. Haz clic en el texto **Más información**, debajo del mensaje.
+2. Aparecerá el botón **Ejecutar de todas formas**: haz clic en él.
+
+Windows no vuelve a preguntar después de la instalación.
+
+Si el navegador avisa que el archivo «no se descarga habitualmente», elige **Conservar** (en
+Edge está en el menú `…` junto a la descarga). Descarga siempre desde el enlace de arriba para
+tener la versión original.
+
+### Otros avisos que puedes ver
+
+- **Firewall de Windows**: si activas el *control desde el celular*, Windows puede preguntar si
+  Habita puede usar la red. Marca **Redes privadas** y pulsa **Permitir**.
+
+### Actualizar o desinstalar
+
+- **Actualizar**: descarga el instalador nuevo desde la misma página y ábrelo con doble clic;
+  reemplaza la versión anterior. Tus proyectos `.habita` y el autoguardado se mantienen.
+- **Desinstalar**: en Windows abre **Configuración → Aplicaciones**, busca *Habita Studio* y
+  elige **Desinstalar**.
+
+### ¿Sin instalar?
+
+En la misma página está **Habita-Studio-…exe** (sin «Setup»): es la versión *portable*. Se
+abre directo con doble clic, sin instalar nada, y sirve para llevarla en un pendrive. El aviso
+de «Windows protegió su PC» se pasa igual que arriba. Para quitarla basta con borrar el archivo.
 
 ## Qué puedes hacer
 
