@@ -6,6 +6,16 @@ Funciona en tu computador, sin cuentas ni servicios en la nube.
 
 ![Maqueta 3D de Habita Studio](docs/capturas/maqueta-3d.jpg)
 
+## Descargar
+
+1. Entra a [Releases](https://github.com/b3nj43lpr0/Habita/releases/latest) y descarga
+   **Habita-Studio-Setup-…exe**.
+2. Ábrelo con doble clic: Habita se instala y queda en el escritorio y en el menú Inicio.
+
+Si Windows muestra «Windows protegió su PC», pulsa **Más información → Ejecutar de todas
+formas** (el programa no está firmado). ¿Sin instalar? Descarga el **Habita-Studio-…exe** sin
+«Setup»: es portable y se abre directo.
+
 ## Qué puedes hacer
 
 **Diseñar**
@@ -36,10 +46,7 @@ Funciona en tu computador, sin cuentas ni servicios en la nube.
 | --- | --- | --- |
 | ![Plano 2D con cotas](docs/capturas/plano-2d-cotas.jpg) | ![Maqueta de noche](docs/capturas/noche.jpg) | ![Control desde el celular](docs/capturas/celular.jpg) |
 
-## Abrir
-
-Usa el ejecutable portable de `release/` (o genéralo con `npm run pack:win`). En Windows
-también puedes hacer doble clic en `Abrir Habita.cmd`.
+## Ejecutar desde el código
 
 Para desarrollo, con Node.js instalado:
 
@@ -117,10 +124,14 @@ docs/            hoja de ruta y capturas
 | `npm run build` | Compila la interfaz en `dist/`. |
 | `npm run test:e2e` | Abre la app real contra el laboratorio y recorre los flujos de la casa conectada. |
 | `npm run lab` | Home Assistant simulado en `http://127.0.0.1:8123` y puente Hue en `127.0.0.1:8180` (escribe «b» para pulsar su botón). |
-| `npm run pack:win` | Ejecutable portable de Windows en `release/`. |
+| `npm run pack:win` | Instalador y ejecutable portable de Windows en `release/` (`Abrir Habita.cmd` abre el más reciente). |
 
 En Linux sin GPU ni llavero, las pruebas de Electron funcionan con
 `xvfb-run electron --use-angle=swiftshader --enable-unsafe-swiftshader --password-store=basic`.
+
+Cada pull request se prueba y se empaqueta en Windows con GitHub Actions
+(`.github/workflows/windows.yml`). Para publicar una versión, sube `"version"` en `package.json`
+y crea la etiqueta, por ejemplo `v0.9.1`: Actions genera el Release con los dos ejecutables.
 
 El ejecutable se empaqueta con los fuses de Electron endurecidos: sin `ELECTRON_RUN_AS_NODE`,
 sin `NODE_OPTIONS` ni `--inspect`, cookies cifradas y solo `app.asar` con integridad validada.

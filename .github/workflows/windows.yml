@@ -1,0 +1,57 @@
+# Ejecutable de Windows: en cada pull request se prueba y se genera (queda como artefacto para
+# revisarlo); al publicar una etiqueta v… (por ejemplo v0.9.0) se crea el Release con el instalador
+# y la versión portable, listos para descargar.
+name: Ejecutable de Windows
+
+on:
+  pull_request:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Generar instalador y portable
+        run: npm run pack:win
+        env:
+          # Sin certificado de firma: el ejecutable sale sin firmar.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Guardar los ejecutables
+        uses: actions/upload-artifact@v4
+        with:
+          name: Habita-Studio-Windows
+          path: release/*.exe
+          if-no-files-found: error
+
+      - name: Publicar el Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.exe
+          body: |
+            ## Descargar
+
+            - **Habita-Studio-Setup-*.exe**: instalador. Doble clic y listo: crea accesos directos en el escritorio y en el menú Inicio, y se desinstala desde la Configuración de Windows.
+            - **Habita-Studio-*.exe** (sin «Setup»): portable. Se abre directo, sin instalar; sirve para llevarlo en un pendrive.
+
+            El ejecutable no está firmado, así que Windows puede mostrar «Windows protegió su PC». Pulsa **Más información → Ejecutar de todas formas**.
+
+            Lo nuevo de esta versión está en [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md).
