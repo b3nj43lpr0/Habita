@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {makeItem} from '../src/catalog.js';
-import {roomCandidate,roomEditError,applyRoomEdit,roomBounds} from '../src/room-edit.js';
+import {makeItem} from '../src/model/catalog.js';
+import {roomCandidate,roomEditError,applyRoomEdit,roomBounds} from '../src/model/room-edit.js';
 const fixture=()=>({version:1,name:'Prueba',wallHeight:2.6,wallThickness:.14,rooms:[{id:'a',name:'Living',x:0,z:0,w:4,d:4,color:'#c5ad8e'},{id:'b',name:'Cocina',x:4,z:0,w:4,d:4,color:'#c5ad8e'}],items:[makeItem('chair',-1,0),makeItem('window',0,-2),{...makeItem('door',2,0),rotation:90}]});
 
 test('redimensionar desde un borde conserva el borde opuesto y mínimo de 50 cm',()=>{

@@ -25,6 +25,8 @@ function demoEntities() {
     // supported_features de cover: abrir 1 + cerrar 2 + posición 4 + detener 8.
     { entity_id: 'cover.living_cortina', state: 'open', area: 'living', attributes: { friendly_name: 'Living · cortina', supported_features: 15, current_position: 100, device_class: 'curtain' } },
     { entity_id: 'cover.dormitorio_persiana', state: 'closed', area: 'dormitorio', attributes: { friendly_name: 'Dormitorio · persiana', supported_features: 3, device_class: 'blind' } },
+    // supported_features de vacuum: pausar 4 + detener 8 + volver 16 + batería 64 + estado 4096 + iniciar 8192.
+    { entity_id: 'vacuum.robot_living', state: 'docked', area: 'living', attributes: { friendly_name: 'Living · aspiradora', supported_features: 12380, battery_level: 87 } },
     { entity_id: 'binary_sensor.puerta_acceso', state: 'off', area: 'acceso', attributes: { friendly_name: 'Acceso · puerta', device_class: 'door' } },
     { entity_id: 'binary_sensor.ventana_living', state: 'off', area: 'living', attributes: { friendly_name: 'Living · ventana', device_class: 'window' } },
     { entity_id: 'binary_sensor.movimiento_living', state: 'off', area: 'living', attributes: { friendly_name: 'Living · movimiento', device_class: 'motion' } },
@@ -88,6 +90,15 @@ function applyService(entity, domain, service, data) {
       if (typeof data.position !== 'number' || data.position < 0 || data.position > 100) throw new Error('Posición fuera de rango');
       a.current_position = data.position; entity.state = data.position > 0 ? 'open' : 'closed';
     } else throw new Error(`Servicio no soportado: cover.${service}`);
+  } else if (domain === 'vacuum') {
+    const supports = bit => (a.supported_features & bit) === bit;
+    // El interruptor del laboratorio hace lo del botón del robot: limpiar o volver a la base.
+    if (service === 'toggle') return applyService(entity, domain, entity.state === 'cleaning' ? 'return_to_base' : 'start', {});
+    if (service === 'start' && supports(8192)) entity.state = 'cleaning';
+    else if (service === 'pause' && supports(4)) { if (entity.state === 'cleaning') entity.state = 'paused'; }
+    else if (service === 'stop' && supports(8)) entity.state = 'idle';
+    else if (service === 'return_to_base' && supports(16)) entity.state = 'returning';
+    else throw new Error(`Servicio no soportado: vacuum.${service}`);
   } else if (domain === 'binary_sensor') {
     // Solo el laboratorio lo cambia: simula abrir o cerrar la puerta o la ventana.
     if (service !== 'toggle') throw new Error(`Servicio no soportado: binary_sensor.${service}`);
@@ -157,6 +168,10 @@ function startFakeHomeAssistant({ port = 8123, token = LAB_TOKEN, log = () => {}
     const before = publicState(structuredClone(entity));
     mutate(entity);
     if (JSON.stringify(before) !== JSON.stringify(publicState(entity))) broadcastChange(entity, before);
+    // La aspiradora llega a su base unos segundos después de recibir la orden, como un robot real.
+    if (entity.entity_id.startsWith('vacuum.') && entity.state === 'returning') {
+      setTimeout(() => { if (entities.get(entityId)?.state === 'returning') change(entityId, e => { e.state = 'docked'; }); }, 4000).unref?.();
+    }
     return entity;
   }
 
@@ -274,11 +289,12 @@ small{color:var(--muted)}code{color:var(--on)}
 const label=e=>{const a=e.attributes;if(e.entity_id.startsWith('light.'))return e.state==='on'?Math.round((a.brightness||0)/2.55)+'% · '+(a.rgb_color?'color':a.color_temp_kelvin?a.color_temp_kelvin+' K':'blanco'):'apagada';
 if(e.entity_id.startsWith('climate.'))return e.state==='off'?'apagado':e.state+' · '+a.temperature+' °C · ventilador '+a.fan_mode;
 if(e.entity_id.startsWith('cover.'))return e.state==='closed'?'cerrada':'abierta'+(a.current_position!=null?' · '+a.current_position+'%':'');
+if(e.entity_id.startsWith('vacuum.'))return({cleaning:'limpiando',paused:'en pausa',idle:'detenida',returning:'volviendo a la base',docked:'en la base'})[e.state]+' · batería '+a.battery_level+'%';
 if(e.entity_id.startsWith('binary_sensor.'))return e.state==='on'?'abierta':'cerrada';
 if(e.entity_id.startsWith('media_player.'))return e.state==='off'?'apagado':a.source+' · volumen '+Math.round(a.volume_level*100)+'%'+(a.is_volume_muted?' · silencio':'');
 if(e.entity_id.startsWith('sensor.'))return e.state+' '+(a.unit_of_measurement||'');return e.state==='on'?'encendido':'apagado';};
 async function paint(){const list=await (await fetch('/lab/states')).json();const grid=document.getElementById('grid');grid.replaceChildren(...list.map(e=>{
-const b=document.createElement('button');const on=!['off','closed','unavailable'].includes(e.state)&&!e.entity_id.startsWith('sensor.');b.className=on?'on':'';
+const b=document.createElement('button');const on=!['off','closed','unavailable','docked','idle'].includes(e.state)&&!e.entity_id.startsWith('sensor.');b.className=on?'on':'';
 if(e.attributes.rgb_color)b.style.setProperty('--dot','rgb('+e.attributes.rgb_color.join(',')+')');b.disabled=e.entity_id.startsWith('sensor.');
 const t=document.createElement('strong');t.innerHTML='<span class="dot"></span>';t.append(e.attributes.friendly_name);const s=document.createElement('small');s.textContent=e.entity_id+' · '+label(e);
 b.append(t,s);b.onclick=async()=>{await fetch('/lab/toggle?entity_id='+encodeURIComponent(e.entity_id),{method:'POST'});paint();};return b;}));}
@@ -287,7 +303,8 @@ document.getElementById('origin').textContent=location.origin;paint();setInterva
 
 if (require.main === module) {
   const port = Number(process.env.PORT || 8123);
-  startFakeHomeAssistant({ port, log: line => console.log(`[${new Date().toLocaleTimeString('es-CL')}] ${line}`) }).then(lab => {
+  const log = line => console.log(`[${new Date().toLocaleTimeString('es-CL')}] ${line}`);
+  Promise.all([startFakeHomeAssistant({ port, log }), require('./fake-hue.cjs').startFakeHue({ port: Number(process.env.HUE_PORT || 8180), log: line => log(`Hue: ${line}`) })]).then(([lab, hue]) => {
     console.log(`
 Laboratorio de Home Assistant en marcha (dispositivos simulados).
   Página     ${lab.url}
@@ -295,7 +312,11 @@ En Habita: botón del enchufe → Conectar tu casa real
   Dirección  ${lab.url}
   Token      ${lab.token}
 
+Puente Philips Hue simulado en ${hue.host}. Escribe «b» y Enter para pulsar su botón;
+después, en Habita: Philips Hue → dirección ${hue.host} → Vincular.
+
 Ctrl+C lo detiene.`);
+    process.stdin.on('data', data => { if (String(data).trim() === 'b') { hue.pressButton(); log('Hue: botón pulsado (30 s para vincular)'); } });
   }).catch(error => {
     console.error(error.code === 'EADDRINUSE' ? `El puerto ${port} está ocupado. Prueba: PORT=8124 npm run lab` : error);
     process.exit(1);

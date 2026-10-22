@@ -2,14 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import mapping from '../desktop/ha-mapping.cjs';
 import lab from '../tools/lab/fake-home-assistant.cjs';
-import { exampleProject, validateProject, warningsFor, wallsFor } from '../src/model.js';
-import { makeItem } from '../src/catalog.js';
-import { levelsOf, levelOf, levelElevation, onLevel, inRoom, validLevels } from '../src/levels.js';
-import { stairTransition, canWalkAt } from '../src/walkthrough.js';
-import { applyRoomEdit } from '../src/room-edit.js';
-import { lampsInRoom } from '../src/lighting.js';
-import { coverFor } from '../src/cover.js';
-import { captureScene, applyScene, validScenes } from '../src/scenes.js';
+import { exampleProject, validateProject, warningsFor, wallsFor } from '../src/model/model.js';
+import { makeItem } from '../src/model/catalog.js';
+import { levelsOf, levelOf, levelElevation, onLevel, inRoom, validLevels } from '../src/model/levels.js';
+import { stairTransition, canWalkAt } from '../src/scene3d/walkthrough.js';
+import { applyRoomEdit } from '../src/model/room-edit.js';
+import { lampsInRoom } from '../src/devices/lighting.js';
+import { coverFor } from '../src/devices/cover.js';
+import { captureScene, applyScene, validScenes } from '../src/model/scenes.js';
 
 const { relevant, fromEntity, toCoverCalls } = mapping;
 

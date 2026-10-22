@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exampleProject, validateProject } from '../src/model.js';
-import { catalog, makeItem } from '../src/catalog.js';
-import { newPlan, calibratePlan, validPlan, planImageLimit } from '../src/plan.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
+import { catalog, makeItem } from '../src/model/catalog.js';
+import { newPlan, calibratePlan, validPlan, planImageLimit } from '../src/model/plan.js';
 
 const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 

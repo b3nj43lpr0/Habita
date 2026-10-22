@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import mapping from '../desktop/ha-mapping.cjs';
 import lab from '../tools/lab/fake-home-assistant.cjs';
-import { exampleProject, validateProject } from '../src/model.js';
-import { makeItem } from '../src/catalog.js';
-import { isTv, tvFor } from '../src/tv.js';
-import { captureScene, applyScene, validScenes } from '../src/scenes.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
+import { makeItem } from '../src/model/catalog.js';
+import { isTv, tvFor } from '../src/devices/tv.js';
+import { captureScene, applyScene, validScenes } from '../src/model/scenes.js';
 
 const { fromEntity, toTvCalls, entityPattern } = mapping;
 const tv = (state = 'on', attributes = {}) => ({

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exampleProject } from '../src/model.js';
-import { loadSavedProject, backupKey } from '../src/app/storage.js';
+import { exampleProject } from '../src/model/model.js';
+import { loadSavedProject, backupKey } from '../src/ui/storage.js';
 
 const memory = () => {
   const data = new Map();

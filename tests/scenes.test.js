@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exampleProject, validateProject } from '../src/model.js';
-import { makeItem } from '../src/catalog.js';
-import { lightFor } from '../src/lighting.js';
-import { climateFor } from '../src/climate.js';
-import { captureScene, applyScene } from '../src/scenes.js';
+import { exampleProject, validateProject } from '../src/model/model.js';
+import { makeItem } from '../src/model/catalog.js';
+import { lightFor } from '../src/devices/lighting.js';
+import { climateFor } from '../src/devices/climate.js';
+import { captureScene, applyScene } from '../src/model/scenes.js';
 
 const withAc = () => {
   const project = exampleProject();

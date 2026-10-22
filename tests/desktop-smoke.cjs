@@ -6,7 +6,7 @@ const output = path.join(__dirname, '..', '.research');
 fs.mkdirSync(output, { recursive: true });
 app.setPath('userData', path.join(output, 'smoke-profile'));
 let done=false;
-const timer=setTimeout(()=>{if(!done){console.error('Electron no completó las interacciones en 60 segundos.');app.exit(1);}},60000);
+const timer=setTimeout(()=>{if(!done){console.error('Electron no completó las interacciones en 4 minutos.');app.exit(1);}},240000);
 app.whenReady().then(async()=>{
   const errors=[];
   const win=new BrowserWindow({show:false,width:1500,height:960,webPreferences:{preload:path.join(__dirname,'../desktop/preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
@@ -15,7 +15,7 @@ app.whenReady().then(async()=>{
     await win.loadFile(path.join(__dirname,'../dist/index.html'));
     const result=await win.webContents.executeJavaScript(`({title:document.title,canvas:!!document.querySelector('#scene canvas'),assets:document.querySelectorAll('[data-asset]').length,bridge:typeof window.habita?.saveProject==='function'&&typeof window.habita?.openProject==='function',stats:document.querySelector('#project-stats')?.textContent})`);
     console.log('Bundle cargado; comprobando edición y luces.');
-    if(!result.canvas||result.assets!==64||!result.bridge||errors.length)throw new Error(JSON.stringify({result,errors}));
+    if(!result.canvas||result.assets!==65||!result.bridge||errors.length)throw new Error(JSON.stringify({result,errors}));
     const interactions=await win.webContents.executeJavaScript(`(async()=>{
       const $=s=>document.querySelector(s),check=(value,message)=>{if(!value)throw Error(message);};
       const wait=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));

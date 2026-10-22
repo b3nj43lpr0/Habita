@@ -6,10 +6,12 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 
-const tools = new Set(['get_home', 'set_lights', 'set_air_conditioners', 'set_tvs', 'activate_scene']);
+const tools = new Set(['get_home', 'set_lights', 'set_air_conditioners', 'set_tvs', 'activate_scene', 'get_plan', 'add_room', 'update_room', 'remove_room', 'add_item', 'update_item', 'remove_item']);
+// Editar el plano requiere un permiso aparte (menú de la bandeja); ver el plano, no.
+const editTools = new Set(['add_room', 'update_room', 'remove_room', 'add_item', 'update_item', 'remove_item']);
 const maxBody = 64 * 1024;
 
-function createAiBridge({ accessFile, call, onCall = () => {} }) {
+function createAiBridge({ accessFile, call, onCall = () => {}, canEdit = () => false }) {
   let server = null;
   let token = null;
 
@@ -38,6 +40,7 @@ function createAiBridge({ accessFile, call, onCall = () => {} }) {
     try { input = JSON.parse(body); } catch { return reply(res, 400, { error: 'JSON inválido.' }); }
     const name = input?.name, args = input?.arguments ?? {};
     if (!tools.has(name)) return reply(res, 400, { error: `Herramienta desconocida: ${name}` });
+    if (editTools.has(name) && !canEdit()) return reply(res, 200, { ok: false, error: 'El usuario no permitió que la IA edite el plano. Pídele que active «Permitir que la IA edite el plano» en el ícono de Habita de la bandeja.' });
     if (!args || typeof args !== 'object' || Array.isArray(args)) return reply(res, 400, { error: 'Los argumentos deben ser un objeto.' });
     const started = Date.now();
     try {
@@ -70,4 +73,4 @@ function createAiBridge({ accessFile, call, onCall = () => {} }) {
   };
 }
 
-module.exports = { createAiBridge };
+module.exports = { createAiBridge, editTools };

@@ -66,6 +66,45 @@ const tools = [
     }
   },
   {
+    name: 'get_plan',
+    description: 'Describe el plano: pisos, habitaciones (x, z del centro; w ancho y d fondo en metros), objetos con su modelo, posición y giro, y el catálogo de modelos disponibles para add_item.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true }
+  },
+  {
+    name: 'add_room',
+    description: 'Agrega una habitación rectangular (requiere que el usuario permita editar el plano). Las habitaciones pueden compartir muros pero no encimarse. Sirve para reconstruir una casa a partir de fotos o de un plano.',
+    inputSchema: { type: 'object', properties: { name: { type: 'string' }, x: { type: 'number' }, z: { type: 'number' }, w: { type: 'number', minimum: .5, maximum: 50 }, d: { type: 'number', minimum: .5, maximum: 50 }, level: { type: 'string', description: 'Id del piso; por omisión, el primero.' } }, required: ['x', 'z', 'w', 'd'], additionalProperties: false },
+    annotations: { destructiveHint: false }
+  },
+  {
+    name: 'update_room',
+    description: 'Cambia el nombre, la posición o las medidas de una habitación.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, x: { type: 'number' }, z: { type: 'number' }, w: { type: 'number' }, d: { type: 'number' } }, required: ['id'], additionalProperties: false }
+  },
+  {
+    name: 'remove_room',
+    description: 'Quita una habitación (sus muebles se conservan). El usuario puede deshacerlo en Habita.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    annotations: { destructiveHint: true }
+  },
+  {
+    name: 'add_item',
+    description: 'Agrega un mueble o equipo del catálogo (ver get_plan). Con «room» y sin x/z queda al centro de esa habitación; las puertas y ventanas se pegan al muro más cercano.',
+    inputSchema: { type: 'object', properties: { asset: { type: 'string' }, room: { type: 'string', description: 'Id o nombre de la habitación.' }, x: { type: 'number' }, z: { type: 'number' }, rotation: { type: 'number' }, name: { type: 'string' }, w: { type: 'number' }, d: { type: 'number' }, h: { type: 'number' }, level: { type: 'string' } }, required: ['asset'], additionalProperties: false }
+  },
+  {
+    name: 'update_item',
+    description: 'Mueve, gira, cambia medidas, color o nombre de un objeto.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' }, x: { type: 'number' }, z: { type: 'number' }, rotation: { type: 'number' }, name: { type: 'string' }, w: { type: 'number' }, d: { type: 'number' }, h: { type: 'number' }, color: { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' } }, required: ['id'], additionalProperties: false }
+  },
+  {
+    name: 'remove_item',
+    description: 'Quita un objeto del plano. El usuario puede deshacerlo en Habita.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    annotations: { destructiveHint: true }
+  },
+  {
     name: 'activate_scene',
     description: 'Activa una escena guardada en Habita (luces, aires, televisores y cortinas a la vez).',
     inputSchema: { type: 'object', properties: { scene: { type: 'string', description: 'Id o nombre de la escena.' } }, required: ['scene'], additionalProperties: false }
@@ -109,7 +148,7 @@ async function handle(message) {
         capabilities: { tools: {} },
         // Habita escribe su versión aquí al copiar este archivo (desktop/main.cjs).
         serverInfo: { name: 'habita', version: 'dev' },
-        instructions: 'Controla la casa de Habita Studio. Llama primero a get_home para conocer habitaciones, objetos y escenas.'
+        instructions: 'Controla la casa de Habita Studio. Llama primero a get_home para conocer habitaciones, objetos y escenas. Para cambiar la distribución (habitaciones y muebles) usa get_plan y las herramientas add_/update_/remove_, que el usuario debe permitir; cada cambio se puede deshacer en Habita.'
       });
     case 'ping':
       return answer({});

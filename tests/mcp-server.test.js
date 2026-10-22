@@ -55,7 +55,7 @@ test('el servidor MCP reenvía herramientas a Habita y avisa si el acceso está 
     assert.equal(init.result.protocolVersion, '2025-06-18');
     mcp.notify('notifications/initialized');
     const list = await mcp.request('tools/list', {});
-    assert.deepEqual(list.result.tools.map(t => t.name), ['get_home', 'set_lights', 'set_air_conditioners', 'set_tvs', 'activate_scene']);
+    assert.deepEqual(list.result.tools.map(t => t.name), ['get_home', 'set_lights', 'set_air_conditioners', 'set_tvs', 'get_plan', 'add_room', 'update_room', 'remove_room', 'add_item', 'update_item', 'remove_item', 'activate_scene']);
 
     const off = await mcp.request('tools/call', { name: 'get_home', arguments: {} });
     assert.equal(off.result.isError, true);
@@ -101,6 +101,9 @@ test('el puente rechaza otros orígenes, tokens incorrectos y herramientas desco
     const rebound = await new Promise(resolve => http.request(`${url}/tool`, { method: 'POST', headers: { host: 'atacante.example', authorization: `Bearer ${token}` } }, res => { res.resume(); resolve(res.statusCode); }).end('{"name":"get_home"}'));
     assert.equal(rebound, 403, 'Rebinding de DNS');
     assert.equal((await post({ name: 'eval' })).status, 400);
+    // Editar el plano exige el permiso aparte; ver el plano, no.
+    assert.match((await (await post({ name: 'add_room', arguments: { x: 0, z: 0, w: 3, d: 3 } })).json()).error, /no permitió que la IA edite/);
+    assert.equal((await (await post({ name: 'get_plan' })).json()).ok, true);
     assert.equal((await post({ name: 'set_lights', arguments: [1] })).status, 400);
     assert.equal((await post({ name: 'get_home', arguments: { x: 'a'.repeat(70 * 1024) } })).status, 413);
     const ok = await post({ name: 'get_home' });

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exampleProject,validateProject,wallsFor,wallPieces,overlaps,alignOpening,warningsFor } from '../src/model.js';
-import { makeItem } from '../src/catalog.js';
+import { exampleProject,validateProject,wallsFor,wallPieces,overlaps,alignOpening,warningsFor } from '../src/model/model.js';
+import { makeItem } from '../src/model/catalog.js';
 
 test('un archivo de proyecto conserva las medidas al guardar y abrir',()=>{
   const p=exampleProject();assert.deepEqual(validateProject(JSON.parse(JSON.stringify(p))),p);

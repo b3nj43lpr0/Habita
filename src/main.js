@@ -1,34 +1,39 @@
-import './style.css';
-import './soft-theme.css';
-import './glass-controls.css';
-import './interaction-details.css';
-import './sliders.css';
-import './devices.css';
-import './control-panel.css';
+import './styles/style.css';
+import './styles/soft-theme.css';
+import './styles/glass-controls.css';
+import './styles/interaction-details.css';
+import './styles/sliders.css';
+import './styles/devices.css';
+import './styles/control-panel.css';
 import * as THREE from 'three';
 import { version } from '../package.json';
-import { isOpening } from './catalog.js';
-import { clone, exampleProject, round, snap, totalArea, validateProject, alignOpening, overlaps } from './model.js';
-import { createScene } from './scene.js';
-import { calibratePlan } from './plan.js';
-import { baseLevel, levelLimit, levelsOf, levelOf, onLevel, sameLevel } from './levels.js';
-import { roomCandidate, roomEditError, applyRoomEdit } from './room-edit.js';
-import { createAmbienceUI } from './ambience-ui.js';
-import { createFeedback } from './interaction-feedback.js';
-import { $, esc, fmt, toast, modal, download } from './app/dom.js';
-import { icon } from './app/icons.js';
-import { shell, helpDialog } from './app/layout.js';
-import { createHistory } from './app/history.js';
-import { loadSavedProject, createAutosave } from './app/storage.js';
-import { createLibrary } from './app/library.js';
-import { createInspector } from './app/inspector.js';
-import { createSelectionActions } from './app/selection-actions.js';
-import { createDevices } from './app/devices.js';
-import { createAiBridge } from './app/ai-bridge.js';
-import { createAutomations } from './app/automations.js';
-import { applyScene } from './scenes.js';
-import { createDeviceTip } from './app/device-tip.js';
-import { createControlPanel } from './app/control-panel.js';
+import { isOpening } from './model/catalog.js';
+import { clone, exampleProject, round, snap, totalArea, validateProject, alignOpening, overlaps } from './model/model.js';
+import { createScene } from './scene3d/scene.js';
+import { calibratePlan } from './model/plan.js';
+import { baseLevel, levelLimit, levelsOf, levelOf, onLevel, sameLevel } from './model/levels.js';
+import { roomCandidate, roomEditError, applyRoomEdit } from './model/room-edit.js';
+import { createAmbienceUI } from './ui/ambience-ui.js';
+import { createDimensions } from './ui/dimensions.js';
+import { templates, templatePreview } from './model/templates.js';
+import { createNotesUI } from './ui/notes-ui.js';
+import { createPhone } from './ui/phone.js';
+import { createVideo } from './ui/video.js';
+import { createFeedback } from './ui/interaction-feedback.js';
+import { $, esc, fmt, toast, modal, download, scrollHints } from './ui/dom.js';
+import { icon } from './ui/icons.js';
+import { shell, helpDialog } from './ui/layout.js';
+import { createHistory } from './ui/history.js';
+import { loadSavedProject, createAutosave } from './ui/storage.js';
+import { createLibrary } from './ui/library.js';
+import { createInspector } from './ui/inspector.js';
+import { createSelectionActions } from './ui/selection-actions.js';
+import { createDevices } from './ui/devices.js';
+import { createAiBridge } from './ui/ai-bridge.js';
+import { createAutomations } from './ui/automations.js';
+import { applyScene } from './model/scenes.js';
+import { createDeviceTip } from './ui/device-tip.js';
+import { createControlPanel } from './ui/control-panel.js';
 
 const saved = loadSavedProject(exampleProject());
 const state = {
@@ -50,12 +55,20 @@ const state = {
   walkLocked: false,
   control: false,
   energy: false,
+  // Selección múltiple (Shift o Ctrl + clic, Ctrl + A): ids de los objetos del grupo; vacía si hay uno
+  // solo. state.selected sigue siendo el objeto principal, el que muestra la barra de acciones.
+  selection: [],
+  // Huincha de medir: la última medida y la que sigue al mouse (no se guardan en el proyecto).
+  measure: null,
+  measurePreview: null,
   roomDragOriginal: null
 };
+// Objetos sobre los que actúan las órdenes: el grupo si lo hay; si no, el objeto seleccionado.
+const selectedItems = () => state.project.items.filter(o => state.selection.length > 1 ? state.selection.includes(o.id) : o.id === state.selected);
 const history = createHistory();
 const persist = createAutosave(() => state.project);
 const ctx = { state, actions: {} };
-let selectionActions = null, library = null, inspector = null;
+let selectionActions = null, library = null, inspector = null, dimensions = null, notesUI = null;
 
 $('#app').innerHTML = shell(state.project, version);
 
@@ -131,6 +144,9 @@ function renameLevel(id, name) {
 
 function changed() {
   syncLevel();
+  state.selection = state.selection.filter(id => state.project.items.some(o => o.id === id));
+  if (state.selection.length < 2) state.selection = [];
+  ctx.scene.setGroup(state.selection);
   ctx.devices.applyLive();
   ctx.scene.rebuild(state.project, state.selected);
   inspector.render();
@@ -140,19 +156,36 @@ function changed() {
   if (state.tab === 'rooms') library.render();
   persist();
   ctx.aiBridge?.publishScenes();
-  ctx.feedback.play('place');
+  // El sonido dice qué pasó: equipos que se encienden (sube), que se apagan (baja) o una escena.
+  const powered = poweredDevices(), before = lastPowered;
+  lastPowered = powered;
+  const sound = state.sound || (powered.size > before.size ? 'on' : powered.size < before.size ? 'off' : 'place');
+  state.sound = null;
+  ctx.feedback.play(sound);
 }
+// Lámparas, aires y televisores encendidos (por id), para elegir el sonido de un cambio.
+const poweredDevices = () => new Set(state.project.items.filter(item => item.light?.on && item.light.brightness > 0 || item.climate?.on || item.tv?.on).map(item => item.id));
+let lastPowered = new Set();
 
 // Activa una escena como un solo paso de Deshacer; los objetos vinculados envían el cambio a sus equipos.
 function activateScene(scene, message = `Escena «${scene.name}» activada.`) {
   if (!applyScene(clone(state.project), scene).length) { toast(`La casa ya está en «${scene.name}».`); return; }
   checkpoint();
   ctx.devices.sendMany(applyScene(state.project, scene));
+  state.sound = 'scene';
   changed();
   toast(message);
 }
 
-function select(id) {
+function select(id, { additive = false } = {}) {
+  const isItem = key => !!key && state.project.items.some(o => o.id === key);
+  if (additive && isItem(id) && isItem(state.selected)) {
+    const group = new Set(state.selection.length ? state.selection : [state.selected]);
+    if (group.has(id)) { group.delete(id); id = [...group].at(-1) ?? null; } else group.add(id);
+    state.selection = group.size > 1 ? [...group] : [];
+  } else if (!state.selection.includes(id)) state.selection = [];
+  // Pulsar un objeto del grupo conserva el grupo, para poder arrastrarlo entero.
+  ctx.scene.setGroup(state.selection);
   if (id && id !== state.selected) ctx.feedback.play();
   // Elegir algo de otro piso (por ejemplo desde la lista de luces) cambia al piso donde está.
   const target = state.project.items.find(o => o.id === id) || state.project.rooms.find(r => r.id === id);
@@ -181,12 +214,14 @@ ctx.scene = createScene($('#scene'), {
   move(id, x, z) {
     if (state.control) return;
     const item = state.project.items.find(o => o.id === id);
-    item.x = snap(x, state.snapping);
-    item.z = snap(z, state.snapping);
-    if (isOpening(item)) {
-      alignOpening(item, state.project);
+    // En grupo, todos se mueven lo mismo que el objeto arrastrado y conservan su distancia.
+    const dx = snap(x, state.snapping) - item.x, dz = snap(z, state.snapping) - item.z;
+    const moving = state.selection.includes(id) ? selectedItems() : [item];
+    for (const o of moving) { o.x = round(o.x + dx); o.z = round(o.z + dz); }
+    if (moving.some(isOpening)) {
+      moving.filter(isOpening).forEach(o => alignOpening(o, state.project));
       ctx.scene.rebuild(state.project, id);
-    } else ctx.scene.moveItem(item);
+    } else moving.forEach(o => ctx.scene.moveItem(o));
     inspector.render();
   },
   endDrag() { renderStats(); persist(); },
@@ -226,6 +261,19 @@ ctx.scene = createScene($('#scene'), {
   drawPoint(p) {
     if (!p) return;
     if (state.tool === 'calibrate') { calibrationPoint(p); return; }
+    if (state.tool === 'note') {
+      const moving = state.noteMove;
+      stopDrawing();
+      notesUI.place({ x: round(p.x), z: round(p.z) }, moving);
+      return;
+    }
+    if (state.tool === 'measure') {
+      const start = state.drawStart, point = measurePoint(p, start);
+      if (!start) { state.drawStart = point; state.measure = null; $('#drawing-hint').textContent = 'Marca el segundo punto · Shift para medir recto · Esc para terminar'; }
+      else { state.measure = { a: start, b: point }; state.measurePreview = null; state.drawStart = null; $('#drawing-hint').textContent = `Midió ${measureLabel(start, point)} · Marca otro punto para medir de nuevo · Esc para terminar`; }
+      dimensions?.refresh();
+      return;
+    }
     const point = { x: snap(p.x, state.snapping), z: snap(p.z, state.snapping) };
     const start = state.drawStart;
     if (!start) {
@@ -249,13 +297,20 @@ ctx.scene = createScene($('#scene'), {
   },
   pointer(p) {
     if (p && state.drawing && state.drawStart) {
-      if (state.tool === 'calibrate') ctx.scene.ghost(state.drawStart, p, true);
+      if (state.tool === 'measure') {
+        const b = measurePoint(p, state.drawStart);
+        state.measurePreview = { a: state.drawStart, b };
+        $('#drawing-hint').textContent = `${measureLabel(state.drawStart, b)} · Marca el segundo punto · Shift para medir recto · Esc para terminar`;
+        dimensions?.refresh();
+      } else if (state.tool === 'calibrate') ctx.scene.ghost(state.drawStart, p, true);
       else ctx.scene.ghost(state.drawStart, { x: snap(p.x, state.snapping), z: snap(p.z, state.snapping) });
     }
   },
   frame(camera, rect) {
     // El primer frame del motor ocurre antes de montar la barra contextual.
     selectionActions?.position(camera, rect);
+    dimensions?.render(camera, rect);
+    notesUI?.position(camera, rect);
     if (state.view !== '2d') return;
     for (const label of $('#room-labels').children) {
       const room = state.project.rooms.find(r => r.id === label.dataset.room);
@@ -290,21 +345,26 @@ document.addEventListener('click', event => {
 const focusButton = document.createElement('button');
 focusButton.id = 'focus-mode';
 focusButton.className = 'icon-button';
-focusButton.innerHTML = icon('focus');
-focusButton.title = 'Ampliar maqueta';
-focusButton.setAttribute('aria-label', 'Ampliar maqueta');
+focusButton.innerHTML = icon('panels');
+focusButton.title = 'Ocultar paneles laterales';
+focusButton.setAttribute('aria-label', 'Ocultar paneles laterales');
 focusButton.setAttribute('aria-pressed', 'false');
 $('.tool-group').prepend(focusButton);
 focusButton.onclick = () => {
   const active = $('.workspace').classList.toggle('focus-mode');
   focusButton.setAttribute('aria-pressed', String(active));
-  focusButton.title = active ? 'Mostrar paneles' : 'Ampliar maqueta';
+  focusButton.title = active ? 'Mostrar paneles laterales' : 'Ocultar paneles laterales';
   focusButton.setAttribute('aria-label', focusButton.title);
   ctx.feedback.play();
 };
 
-Object.assign(ctx.actions, { checkpoint, changed, select, activateScene, setView, setLevel, addLevel, deleteLevel, renameLevel, startDrawing, startCalibration, rotateItem, duplicateItem, deleteSelected });
+Object.assign(ctx.actions, { undo, replaceProject, startNote, selectedItems, alignGroup, checkpoint, changed, select, activateScene, setView, setLevel, addLevel, deleteLevel, renameLevel, startDrawing, startCalibration, rotateItem, duplicateItem, deleteSelected });
 selectionActions = createSelectionActions(ctx);
+dimensions = createDimensions(ctx);
+notesUI = createNotesUI(ctx);
+ctx.phone = createPhone();
+const video = createVideo(ctx);
+$('#record-video').onclick = () => video.open();
 const showDeviceTip = createDeviceTip($('.viewport'), ctx);
 library = createLibrary(ctx);
 inspector = createInspector(ctx);
@@ -321,6 +381,8 @@ ctx.devices = createDevices(ctx, {
     renderStats();
     if (state.energy) ctx.scene.setHeat(ctx.devices.roomPower());
     if (itemIds.length) persist();
+    lastPowered = poweredDevices();
+    ctx.aiBridge?.publishStatus();
   },
   onContact: (itemIds, open) => ctx.automations?.contact(itemIds, open)
 });
@@ -330,6 +392,7 @@ ctx.automations = createAutomations(ctx);
 ctx.aiBridge = createAiBridge(ctx);
 
 function renderRooms() {
+  notesUI?.render();
   const { selected } = state, project = onLevel(state.project, state.level);
   const levels = levelsOf(state.project);
   const climate = r => ctx.devices?.roomSensors(r.id) || '';
@@ -337,10 +400,14 @@ function renderRooms() {
     `<button data-add-level class="level-chip" title="Agregar un piso" aria-label="Agregar un piso">${icon('plus', 13)}</button><span class="tool-divider"></span>` +
     `<button data-room="" class="${!selected ? 'active' : ''}">${icon('home', 14)} Toda la casa</button>` +
     project.rooms.map(r => `<button data-room="${esc(r.id)}" class="${selected === r.id ? 'active' : ''}">${esc(r.name)}${climate(r) ? ` <small class="room-sensor">${esc(climate(r))}</small>` : ''}</button>`).join('');
-  $('#room-chips').querySelectorAll('[data-room]').forEach(b => b.onclick = () => select(b.dataset.room || null));
+  // En la maqueta, elegir un espacio vuela hacia él; «Toda la casa» vuelve a encuadrarla.
+  $('#room-chips').querySelectorAll('[data-room]').forEach(b => b.onclick = () => {
+    select(b.dataset.room || null);
+    if (state.view !== 'walk') b.dataset.room ? ctx.scene.focusRoom(b.dataset.room) : ctx.scene.fit(true);
+  });
   $('#room-chips').querySelectorAll('[data-level]').forEach(b => b.onclick = () => setLevel(b.dataset.level));
   $('#room-chips').querySelector('[data-add-level]').onclick = addLevel;
-  $('#room-labels').innerHTML = project.rooms.map(r => `<span class="room-label" data-room="${esc(r.id)}">${esc(r.name)}<small>${fmt(r.w * r.d)} m²${climate(r) ? ` · ${esc(climate(r))}` : ''}</small></span>`).join('');
+  $('#room-labels').innerHTML = onLevel(project, state.level).rooms.map(r => `<span class="room-label" data-room="${esc(r.id)}">${esc(r.name)}<small>${fmt(r.w)} × ${fmt(r.d)} m · ${fmt(r.w * r.d)} m²${climate(r) ? ` · ${esc(climate(r))}` : ''}</small></span>`).join('');
   $('#room-labels').hidden = state.view !== '2d';
 }
 
@@ -359,36 +426,129 @@ function undo(redo = false) {
   const previous = redo ? history.redo(clone(state.project)) : history.undo(clone(state.project));
   if (!previous) return;
   state.project = previous;
-  state.selected = null;
+  // La selección se conserva si el objeto o la habitación sigue existiendo (el grupo, no).
+  state.selection = [];
+  if (![...state.project.items, ...state.project.rooms].some(o => o.id === state.selected)) state.selected = null;
   $('#project-name').value = state.project.name;
   stopDrawing();
   changed();
   if (state.tab === 'rooms') library.render();
+  toast(redo ? 'Cambio rehecho.' : 'Cambio deshecho.', { label: redo ? 'Deshacer' : 'Rehacer', run: () => undo(!redo) });
 }
 
+// En grupo, cada objeto gira sobre su propio centro; las puertas y ventanas siguen a su pared.
 function rotateItem() {
-  const item = state.project.items.find(o => o.id === state.selected);
-  if (!item) return;
-  if (isOpening(item)) { toast('Las puertas y ventanas se orientan automáticamente a la pared.'); return; }
+  const items = selectedItems(), turning = items.filter(o => !isOpening(o));
+  if (!items.length) return;
+  if (!turning.length) { toast('Las puertas y ventanas se orientan automáticamente a la pared.'); return; }
   checkpoint();
-  item.rotation = (item.rotation + 90) % 360;
+  for (const item of turning) item.rotation = (item.rotation + 90) % 360;
   changed();
+}
+
+// Copias desplazadas 40 cm; con un grupo, el grupo de copias queda seleccionado.
+function placeCopies(sources, level = null) {
+  checkpoint();
+  const copies = sources.map(item => {
+    const copy = { ...clone(item), id: crypto.randomUUID(), x: round(item.x + .4), z: round(item.z + .4) };
+    if (level) { if (level !== baseLevel) copy.level = level; else delete copy.level; }
+    if (isOpening(copy)) alignOpening(copy, state.project);
+    return copy;
+  });
+  state.project.items.push(...copies);
+  state.selection = copies.length > 1 ? copies.map(c => c.id) : [];
+  state.selected = copies.at(-1).id;
+  changed();
+  return copies;
 }
 
 function duplicateItem() {
-  const item = state.project.items.find(o => o.id === state.selected);
-  if (!item) return;
+  const items = selectedItems();
+  if (items.length) placeCopies(items);
+}
+
+// Alinear o repartir el grupo según el contorno de cada objeto en planta (girado). En el plano,
+// «arriba» es hacia el fondo (−z).
+function alignGroup(mode) {
+  const items = selectedItems().filter(o => !isOpening(o));
+  if (items.length < 2) return;
+  const half = o => {
+    const a = o.rotation * Math.PI / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+    return { x: o.w / 2 * c + o.d / 2 * s, z: o.w / 2 * s + o.d / 2 * c };
+  };
+  const axis = ['left', 'center-x', 'right', 'spread-x'].includes(mode) ? 'x' : 'z';
+  const min = Math.min(...items.map(o => o[axis] - half(o)[axis])), max = Math.max(...items.map(o => o[axis] + half(o)[axis]));
   checkpoint();
-  const copy = { ...clone(item), id: crypto.randomUUID(), x: round(item.x + .4), z: round(item.z + .4) };
-  if (isOpening(copy)) alignOpening(copy, state.project);
-  state.project.items.push(copy);
-  state.selected = copy.id;
+  if (mode.startsWith('spread')) {
+    // Mismo espacio libre entre objetos, de un extremo al otro.
+    const sorted = [...items].sort((a, b) => a[axis] - b[axis]);
+    const gap = (max - min - sorted.reduce((n, o) => n + half(o)[axis] * 2, 0)) / (sorted.length - 1);
+    let at = min;
+    for (const o of sorted) { o[axis] = round(at + half(o)[axis]); at += half(o)[axis] * 2 + gap; }
+  } else for (const o of items) {
+    const h = half(o)[axis];
+    o[axis] = round(['left', 'top'].includes(mode) ? min + h : ['right', 'bottom'].includes(mode) ? max - h : (min + max) / 2);
+  }
   changed();
+}
+
+// Ctrl + A: todos los objetos del piso activo.
+function selectAll() {
+  const ids = onLevel(state.project, state.level).items.map(o => o.id);
+  if (!ids.length) return;
+  state.selection = ids.length > 1 ? ids : [];
+  select(ids.at(-1));
+  toast(`${ids.length} ${ids.length === 1 ? 'objeto seleccionado' : 'objetos seleccionados'}. Arrastra uno para moverlos juntos.`);
+}
+
+// Mover con las flechas: 10 cm (1 cm sin ajuste a la cuadrícula, 50 cm con Shift). Las pulsaciones
+// seguidas sobre el mismo objeto cuentan como un solo paso de Deshacer.
+let lastNudge = { id: null, time: 0 };
+function nudgeItem(arrow, large) {
+  const items = selectedItems(), item = items.at(-1);
+  if (!item) return false;
+  const { right, up } = ctx.scene.screenAxes();
+  const step = large ? .5 : state.snapping ? .1 : .01;
+  const [dx, dz] = { ArrowRight: [right.x, right.z], ArrowLeft: [-right.x, -right.z], ArrowUp: [up.x, up.z], ArrowDown: [-up.x, -up.z] }[arrow];
+  const now = performance.now();
+  if (lastNudge.id !== item.id || now - lastNudge.time > 1500) checkpoint();
+  lastNudge = { id: item.id, time: now };
+  for (const o of items) {
+    o.x = round(o.x + dx * step);
+    o.z = round(o.z + dz * step);
+    if (isOpening(o)) alignOpening(o, state.project);
+  }
+  changed();
+  return true;
+}
+
+// Portapapeles propio: copia lo seleccionado y lo pega 40 cm más allá, en el piso activo. Pegar
+// varias veces deja cada copia junto a la anterior.
+let clipboard = [];
+function copyItem() {
+  const items = selectedItems();
+  if (!items.length) return;
+  clipboard = clone(items);
+  toast(items.length === 1 ? `«${items[0].name}» copiado. Pégalo con Ctrl + V.` : `${items.length} objetos copiados. Pégalos con Ctrl + V.`);
+}
+function pasteItem() {
+  if (clipboard.length) clipboard = clone(placeCopies(clipboard, state.level));
 }
 
 function deleteSelected() {
   if (!state.selected) return;
+  if (state.selection.length > 1) {
+    const ids = new Set(state.selection);
+    checkpoint();
+    state.project.items = state.project.items.filter(o => !ids.has(o.id));
+    state.selection = [];
+    state.selected = null;
+    changed();
+    toast(`Se eliminaron ${ids.size} objetos.`, { label: 'Deshacer', run: () => undo() });
+    return;
+  }
   const room = state.project.rooms.find(r => r.id === state.selected);
+  const target = room || state.project.items.find(o => o.id === state.selected);
   const remove = () => {
     checkpoint();
     state.project.items = state.project.items.filter(o => o.id !== state.selected);
@@ -396,6 +556,7 @@ function deleteSelected() {
     state.selected = null;
     changed();
     if (state.tab === 'rooms') library.render();
+    toast(`Se eliminó «${target.name}».`, { label: 'Deshacer', run: () => undo() });
   };
   if (!room) { remove(); return; }
   modal(`
@@ -405,6 +566,20 @@ function deleteSelected() {
     $('#confirm-delete').onclick = () => { $('#dialog').close(); remove(); };
   });
 }
+
+// Espacio que tapan los paneles flotantes sobre la maqueta, para centrar y encuadrar la casa en lo
+// que queda libre. Cambia con la vista, al abrir o plegar Ambiente y al cambiar el tamaño.
+function updateInsets() {
+  const viewport = $('.viewport').getBoundingClientRect();
+  if (!viewport.height) return;
+  const dock = $('#ambience-dock');
+  const below = !dock.hidden && !dock.classList.contains('collapsed') ? dock : $('.scene-bottom');
+  const top = Math.max(0, $('.scene-toolbar').getBoundingClientRect().bottom - viewport.top + 8);
+  const bottom = Math.max(0, viewport.bottom - below.getBoundingClientRect().top + 8);
+  ctx.scene.setInsets(Math.round(top), Math.round(bottom));
+}
+$('.viewport').addEventListener('ambiencetoggle', () => { updateInsets(); ctx.scene.fit(true); });
+new ResizeObserver(updateInsets).observe($('.viewport'));
 
 function setView(next) {
   if (!ctx.scene.setMode(next)) return;
@@ -416,6 +591,8 @@ function setView(next) {
   $('#walk-reticle').hidden = next !== 'walk' || !state.walkLocked;
   $('#walk-instructions').hidden = next !== 'walk';
   ambienceUI.setView(next);
+  updateInsets();
+  dimensions?.refresh();
   selectionActions.render();
   $('#scene-hint').innerHTML = next === '2d'
     ? `${icon('ruler', 14)} Arrastra pisos y muebles <span>·</span> Usa los tiradores para ajustar`
@@ -432,6 +609,37 @@ function startDrawing() {
   $('#drawing-hint').hidden = false;
   $('#drawing-hint').textContent = 'Marca una esquina en el plano · Después, la esquina opuesta · Esc para cancelar';
 }
+
+// Huincha de medir: dos clics miden en el plano. Los puntos se pegan a las esquinas de los espacios
+// cercanas (a menos de 15 cm) y con Shift la medida queda recta. Sigue activa para medir otra vez
+// hasta pulsar Esc o el botón; la última medida queda a la vista mientras tanto.
+let shiftDown = false;
+addEventListener('keydown', event => { if (event.key === 'Shift') shiftDown = true; });
+addEventListener('keyup', event => { if (event.key === 'Shift') shiftDown = false; });
+addEventListener('blur', () => { shiftDown = false; });
+// Notas: un clic en el plano marca dónde va la nota (o adónde se mueve la elegida).
+function startNote(moveId = null) {
+  startDrawing();
+  state.tool = 'note';
+  state.noteMove = moveId;
+  $('#drawing-hint').textContent = moveId ? 'Marca el nuevo lugar de la nota · Esc para cancelar' : 'Marca dónde va la nota · Esc para cancelar';
+}
+function startMeasure() {
+  if (state.tool === 'measure' && state.drawing) { stopDrawing(); return; }
+  startDrawing();
+  state.tool = 'measure';
+  state.measure = null;
+  $('#measure-tool').setAttribute('aria-pressed', 'true');
+  $('#drawing-hint').textContent = 'Marca el primer punto · Shift para medir recto · Esc para terminar';
+}
+function measurePoint(p, start = null) {
+  const corners = onLevel(state.project, state.level).rooms.flatMap(r => [[r.x - r.w / 2, r.z - r.d / 2], [r.x + r.w / 2, r.z - r.d / 2], [r.x - r.w / 2, r.z + r.d / 2], [r.x + r.w / 2, r.z + r.d / 2]]);
+  const near = corners.find(([x, z]) => Math.hypot(x - p.x, z - p.z) < .15);
+  let point = near ? { x: near[0], z: near[1] } : { x: round(Math.round(p.x * 100) / 100), z: round(Math.round(p.z * 100) / 100) };
+  if (start && shiftDown) point = Math.abs(point.x - start.x) >= Math.abs(point.z - start.z) ? { x: point.x, z: start.z } : { x: start.x, z: point.z };
+  return point;
+}
+function measureLabel(a, b) { return `${fmt(Math.round(Math.hypot(b.x - a.x, b.z - a.z) * 100) / 100)} m`; }
 
 // Calibración del plano: dos clics sobre una medida conocida (sin ajuste a la cuadrícula).
 function startCalibration() {
@@ -476,8 +684,10 @@ function calibrationPoint(p) {
 }
 
 function stopDrawing() {
+  const measuring = state.tool === 'measure' && state.drawing;
   state.drawing = false;
   state.drawStart = null;
+  if (measuring) { state.measure = null; state.measurePreview = null; $('#measure-tool').setAttribute('aria-pressed', 'false'); dimensions?.refresh(); }
   ctx.scene.ghost(null, null);
   ctx.scene.drawing(false);
   $('#drawing-hint').hidden = true;
@@ -499,6 +709,41 @@ function loadProject(text) {
     toast(error.message || 'No pudimos abrir el proyecto.');
   }
 }
+
+// Reemplaza la casa entera (plantilla o versión guardada) como un paso de Deshacer.
+function replaceProject(next, message) {
+  checkpoint();
+  state.project = next;
+  state.selected = null;
+  state.selection = [];
+  if (!levelsOf(next).some(l => l.id === state.level)) state.level = baseLevel;
+  $('#project-name').value = state.project.name;
+  stopDrawing();
+  changed();
+  ctx.scene.setLevel(state.level);
+  ctx.scene.fit();
+  library.render();
+  toast(message, { label: 'Deshacer', run: () => undo() });
+}
+
+// Nueva casa desde una plantilla. Reemplazar la casa es un paso de Deshacer, como abrir un archivo.
+function newHome() {
+  modal(`
+   <h2>Nueva casa</h2>
+   <p>Elige cómo empezar. La casa actual se recupera con Deshacer; si quieres conservarla en un archivo, guárdala antes.</p>
+   <div class="template-grid">${templates.map(t => `<button class="template-card" data-template="${t.id}">${templatePreview(t.make())}<strong>${esc(t.name)}</strong><small>${esc(t.detail)}</small></button>`).join('')}</div>
+   <div class="dialog-actions"><button data-close class="secondary">Cancelar</button></div>`, () => {
+    document.querySelectorAll('[data-template]').forEach(button => button.onclick = () => {
+      const template = templates.find(t => t.id === button.dataset.template);
+      $('#dialog').close();
+      const next = validateProject(template.make());
+      replaceProject(next, next.rooms.length ? `«${template.name}» lista para personalizar.` : 'Plano vacío: usa «Dibujar habitación» para crear tus espacios.');
+      if (!next.rooms.length) $('[data-tab="rooms"]').click();
+    });
+  });
+}
+$('#new-home').onclick = newHome;
+$('#measure-tool').onclick = startMeasure;
 
 $('#save').onclick = async () => {
   try {
@@ -559,7 +804,7 @@ $('#snap').onclick = () => {
   $('#snap').setAttribute('aria-pressed', String(state.snapping));
   $('#snap').innerHTML = `${icon('ruler', 13)} ${state.snapping ? 'Ajuste a 10 cm' : 'Movimiento libre'}`;
 };
-const wallModes = [['cut', 'Paredes bajas'], ['full', 'Paredes completas'], ['none', 'Sin paredes']];
+const wallModes = [['auto', 'Paredes según vista'], ['cut', 'Paredes bajas'], ['full', 'Paredes completas'], ['none', 'Sin paredes']];
 let wallMode = 0;
 $('#walls').onclick = () => {
   wallMode = (wallMode + 1) % wallModes.length;
@@ -599,18 +844,32 @@ $('#control-mode').onclick = () => {
 };
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') { stopDrawing(); return; }
+  if (event.key === 'Escape') {
+    if (!state.drawing && state.selection.length && !$('#dialog').open) select(null);
+    stopDrawing();
+    return;
+  }
   if (state.view === 'walk' || state.control) return;
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName) || $('#dialog').open) return;
   const key = event.key.toLowerCase(), command = event.ctrlKey || event.metaKey;
   if (command && key === 'z') { event.preventDefault(); undo(event.shiftKey); }
   else if (command && key === 'y') { event.preventDefault(); undo(true); }
   else if (command && key === 's') { event.preventDefault(); $('#save').click(); }
-  else if (key === 'r') rotateItem();
+  else if (command && key === 'd') { event.preventDefault(); duplicateItem(); }
+  else if (command && key === 'a') { event.preventDefault(); selectAll(); }
+  else if (command && key === 'c') copyItem();
+  else if (command && key === 'v') { event.preventDefault(); pasteItem(); }
+  else if (event.key.startsWith('Arrow') && !command && !event.altKey) { if (nudgeItem(event.key, event.shiftKey)) event.preventDefault(); }
+  else if (key === 'r' && !command) rotateItem();
+  else if (key === 'm' && !command) startMeasure();
+  else if (key === 'n' && !command) startNote();
   else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelected(); }
 });
 
 ctx.scene.rebuild(state.project);
+lastPowered = poweredDevices();
+scrollHints($('#room-chips'));
+updateInsets();
 ctx.scene.fit();
 library.render();
 inspector.render();
