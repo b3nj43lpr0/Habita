@@ -176,19 +176,31 @@ export function createSelectionActions(ctx) {
     if (bar.hidden) return;
     const item = selectedItem();
     if (!item) return;
-    const pos = new THREE.Vector3(item.x, (item.elevation || 0) + item.h + .2, item.z).project(camera);
+    const top = (item.elevation || 0) + item.h + .2;
+    const pos = new THREE.Vector3(item.x, top, item.z).project(camera);
     bar.style.visibility = Math.abs(pos.x) > 1.15 || Math.abs(pos.y) > 1.15 || Math.abs(pos.z) > 1 ? 'hidden' : 'visible';
     const dock = $('#ambience-dock');
     // Con controles de un equipo el panel puede cubrir el dock de ambiente para no quedar cortado.
     const dockTop = dock.hidden || bar.classList.contains('with-light') ? rect.height - 66 : dock.getBoundingClientRect().top - rect.top;
     const minTop = state.view === '3d' ? 140 : 78;
     bar.style.maxHeight = `${Math.max(100, dockTop - minTop - 12)}px`;
-    const anchorX = (pos.x + 1) * rect.width / 2, anchorY = (-pos.y + 1) * rect.height / 2;
-    let x = anchorX - bar.offsetWidth / 2, y = anchorY - bar.offsetHeight - 12;
-    // Si no cabe encima del objeto, va a su lado para no taparlo.
-    if (y < minTop) {
-      x = anchorX + 48 + bar.offsetWidth <= rect.width - 12 ? anchorX + 48 : anchorX - 48 - bar.offsetWidth;
-      y = anchorY - bar.offsetHeight / 2;
+    // Contorno del objeto en pantalla (sus cuatro esquinas, ya giradas): la barra se apoya sobre su
+    // borde superior; si no cabe, bajo su borde inferior, y si tampoco, a su lado. Así no tapa el
+    // objeto, tampoco en el plano 2D.
+    const angle = item.rotation * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => {
+      const lx = sx * item.w / 2, lz = sz * item.d / 2;
+      const p = new THREE.Vector3(item.x + lx * cos + lz * sin, top, item.z - lx * sin + lz * cos).project(camera);
+      return [(p.x + 1) * rect.width / 2, (-p.y + 1) * rect.height / 2];
+    });
+    const left = Math.min(...corners.map(c => c[0])), right = Math.max(...corners.map(c => c[0]));
+    const upper = Math.min(...corners.map(c => c[1])), lower = Math.max(...corners.map(c => c[1]));
+    const anchorX = (pos.x + 1) * rect.width / 2;
+    let x = anchorX - bar.offsetWidth / 2, y = upper - bar.offsetHeight - 12;
+    if (y < minTop && lower + 12 + bar.offsetHeight <= dockTop - 12) y = lower + 12;
+    else if (y < minTop) {
+      x = right + 16 + bar.offsetWidth <= rect.width - 12 ? right + 16 : left - 16 - bar.offsetWidth;
+      y = (upper + lower) / 2 - bar.offsetHeight / 2;
     }
     x = Math.max(12, Math.min(rect.width - bar.offsetWidth - 12, x));
     y = Math.max(minTop, Math.min(dockTop - bar.offsetHeight - 12, y));

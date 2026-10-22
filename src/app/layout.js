@@ -7,7 +7,7 @@ export function shell(project, version) {
  <header class="topbar">
   <div class="brand"><span class="brand-mark">${icon('home', 25)}</span><span>habita<span class="brand-sub">studio</span></span></div>
   <div class="project-title">
-   <input id="project-name" aria-label="Nombre del proyecto" maxlength="120" value="${esc(project.name)}">
+   <input id="project-name" aria-label="Nombre del proyecto" title="Cambiar el nombre del proyecto" maxlength="120" value="${esc(project.name)}">
    <span id="save-status">${icon('check', 12)} Guardado en este equipo</span>
   </div>
   <div class="header-actions">
@@ -45,9 +45,13 @@ export function shell(project, version) {
    </div>
    <div class="scene-heading"><span class="overline">Un lugar para imaginar</span><h2>Tu casa, a tu manera.</h2><p>Explora. Mueve. Hazla tuya.</p></div>
    <div class="scene-right">
-    <button id="light" class="float-button" title="Cambiar iluminación">${icon('sun')}<span>Día</span></button>
     <button id="walls" class="float-button" title="Cambiar visualización de paredes">${icon('layers')}<span>Paredes bajas</span></button>
     <button id="energy" class="float-button" title="Colorear las habitaciones según su consumo" aria-pressed="false">${icon('bolt')}<span>Consumo</span></button>
+    <div class="zoom-controls">
+     <button id="zoom-in" aria-label="Acercar" title="Acercar">+</button>
+     <button id="fit" aria-label="Encuadrar casa" title="Encuadrar casa">${icon('focus', 17)}</button>
+     <button id="zoom-out" aria-label="Alejar" title="Alejar">−</button>
+    </div>
    </div>
    <div id="drawing-hint" hidden></div>
    <div id="walk-overlay" hidden>
@@ -60,11 +64,6 @@ export function shell(project, version) {
    <div id="walk-instructions" hidden>
     <strong>W A S D</strong> Caminar <span>·</span> Mouse para mirar <span>·</span> Shift para ir más rápido
     <small>Escala 1:1 · Ojos a 1,65 m · Puertas abiertas</small>
-   </div>
-   <div class="zoom-controls">
-    <button id="zoom-in" aria-label="Acercar">+</button>
-    <button id="fit" aria-label="Encuadrar casa" title="Encuadrar casa">${icon('focus', 17)}</button>
-    <button id="zoom-out" aria-label="Alejar">−</button>
    </div>
    <div class="scene-bottom"><div id="room-chips"></div><div class="scene-hint" id="scene-hint">${icon('rotate', 14)} Arrastra para girar <span>·</span> Rueda para acercar</div></div>
   </main>
@@ -98,6 +97,6 @@ export const helpDialog = () => `
   <li><strong>Agrega pisos</strong> con el botón + junto a los espacios; la escalera conecta los pisos en el recorrido.</li>
   <li><strong>Importa</strong> el plano de tu casa como imagen desde <strong>Espacios</strong> y calíbralo con una medida conocida.</li>
  </ul>
- <div class="shortcut-list"><span>Ctrl + Z · Deshacer</span><span>R · Girar</span><span>Supr · Eliminar objeto</span><span>Esc · Cancelar herramienta</span></div>
+ <div class="shortcut-list"><span>Ctrl + Z · Deshacer</span><span>Ctrl + Y · Rehacer</span><span>Flechas · Mover (Shift: 50 cm)</span><span>R · Girar</span><span>Ctrl + D · Duplicar</span><span>Ctrl + C / V · Copiar y pegar</span><span>Supr · Eliminar</span><span>Esc · Cancelar herramienta</span></div>
  <p class="library-note">Medidas de muebles orientativas. Esta versión comprueba límites y superposición de objetos; aún no valida circulación, estructura ni normativa.</p>
  <button data-close class="primary full">Empezar a diseñar</button>`;

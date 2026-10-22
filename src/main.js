@@ -15,7 +15,7 @@ import { baseLevel, levelLimit, levelsOf, levelOf, onLevel, sameLevel } from './
 import { roomCandidate, roomEditError, applyRoomEdit } from './room-edit.js';
 import { createAmbienceUI } from './ambience-ui.js';
 import { createFeedback } from './interaction-feedback.js';
-import { $, esc, fmt, toast, modal, download } from './app/dom.js';
+import { $, esc, fmt, toast, modal, download, scrollHints } from './app/dom.js';
 import { icon } from './app/icons.js';
 import { shell, helpDialog } from './app/layout.js';
 import { createHistory } from './app/history.js';
@@ -290,15 +290,15 @@ document.addEventListener('click', event => {
 const focusButton = document.createElement('button');
 focusButton.id = 'focus-mode';
 focusButton.className = 'icon-button';
-focusButton.innerHTML = icon('focus');
-focusButton.title = 'Ampliar maqueta';
-focusButton.setAttribute('aria-label', 'Ampliar maqueta');
+focusButton.innerHTML = icon('panels');
+focusButton.title = 'Ocultar paneles laterales';
+focusButton.setAttribute('aria-label', 'Ocultar paneles laterales');
 focusButton.setAttribute('aria-pressed', 'false');
 $('.tool-group').prepend(focusButton);
 focusButton.onclick = () => {
   const active = $('.workspace').classList.toggle('focus-mode');
   focusButton.setAttribute('aria-pressed', String(active));
-  focusButton.title = active ? 'Mostrar paneles' : 'Ampliar maqueta';
+  focusButton.title = active ? 'Mostrar paneles laterales' : 'Ocultar paneles laterales';
   focusButton.setAttribute('aria-label', focusButton.title);
   ctx.feedback.play();
 };
@@ -359,11 +359,13 @@ function undo(redo = false) {
   const previous = redo ? history.redo(clone(state.project)) : history.undo(clone(state.project));
   if (!previous) return;
   state.project = previous;
-  state.selected = null;
+  // La selección se conserva si el objeto o la habitación sigue existiendo.
+  if (![...state.project.items, ...state.project.rooms].some(o => o.id === state.selected)) state.selected = null;
   $('#project-name').value = state.project.name;
   stopDrawing();
   changed();
   if (state.tab === 'rooms') library.render();
+  toast(redo ? 'Cambio rehecho.' : 'Cambio deshecho.', { label: redo ? 'Deshacer' : 'Rehacer', run: () => undo(!redo) });
 }
 
 function rotateItem() {
@@ -386,9 +388,50 @@ function duplicateItem() {
   changed();
 }
 
+// Mover con las flechas: 10 cm (1 cm sin ajuste a la cuadrícula, 50 cm con Shift). Las pulsaciones
+// seguidas sobre el mismo objeto cuentan como un solo paso de Deshacer.
+let lastNudge = { id: null, time: 0 };
+function nudgeItem(arrow, large) {
+  const item = state.project.items.find(o => o.id === state.selected);
+  if (!item) return false;
+  const { right, up } = ctx.scene.screenAxes();
+  const step = large ? .5 : state.snapping ? .1 : .01;
+  const [dx, dz] = { ArrowRight: [right.x, right.z], ArrowLeft: [-right.x, -right.z], ArrowUp: [up.x, up.z], ArrowDown: [-up.x, -up.z] }[arrow];
+  const now = performance.now();
+  if (lastNudge.id !== item.id || now - lastNudge.time > 1500) checkpoint();
+  lastNudge = { id: item.id, time: now };
+  item.x = round(item.x + dx * step);
+  item.z = round(item.z + dz * step);
+  if (isOpening(item)) alignOpening(item, state.project);
+  changed();
+  return true;
+}
+
+// Portapapeles propio: copia el objeto seleccionado y lo pega junto al original (o al centro de la
+// vista si el original ya no existe), en el piso activo.
+let clipboard = null;
+function copyItem() {
+  const item = state.project.items.find(o => o.id === state.selected);
+  if (!item) return;
+  clipboard = clone(item);
+  toast(`«${item.name}» copiado. Pégalo con Ctrl + V.`);
+}
+function pasteItem() {
+  if (!clipboard) return;
+  checkpoint();
+  const copy = { ...clone(clipboard), id: crypto.randomUUID(), x: round(clipboard.x + .4), z: round(clipboard.z + .4) };
+  if (state.level !== baseLevel) copy.level = state.level; else delete copy.level;
+  if (isOpening(copy)) alignOpening(copy, state.project);
+  state.project.items.push(copy);
+  clipboard = copy;
+  state.selected = copy.id;
+  changed();
+}
+
 function deleteSelected() {
   if (!state.selected) return;
   const room = state.project.rooms.find(r => r.id === state.selected);
+  const target = room || state.project.items.find(o => o.id === state.selected);
   const remove = () => {
     checkpoint();
     state.project.items = state.project.items.filter(o => o.id !== state.selected);
@@ -396,6 +439,7 @@ function deleteSelected() {
     state.selected = null;
     changed();
     if (state.tab === 'rooms') library.render();
+    toast(`Se eliminó «${target.name}».`, { label: 'Deshacer', run: () => undo() });
   };
   if (!room) { remove(); return; }
   modal(`
@@ -405,6 +449,20 @@ function deleteSelected() {
     $('#confirm-delete').onclick = () => { $('#dialog').close(); remove(); };
   });
 }
+
+// Espacio que tapan los paneles flotantes sobre la maqueta, para centrar y encuadrar la casa en lo
+// que queda libre. Cambia con la vista, al abrir o plegar Ambiente y al cambiar el tamaño.
+function updateInsets() {
+  const viewport = $('.viewport').getBoundingClientRect();
+  if (!viewport.height) return;
+  const dock = $('#ambience-dock');
+  const below = !dock.hidden && !dock.classList.contains('collapsed') ? dock : $('.scene-bottom');
+  const top = Math.max(0, $('.scene-toolbar').getBoundingClientRect().bottom - viewport.top + 8);
+  const bottom = Math.max(0, viewport.bottom - below.getBoundingClientRect().top + 8);
+  ctx.scene.setInsets(Math.round(top), Math.round(bottom));
+}
+$('.viewport').addEventListener('ambiencetoggle', () => { updateInsets(); ctx.scene.fit(true); });
+new ResizeObserver(updateInsets).observe($('.viewport'));
 
 function setView(next) {
   if (!ctx.scene.setMode(next)) return;
@@ -416,6 +474,7 @@ function setView(next) {
   $('#walk-reticle').hidden = next !== 'walk' || !state.walkLocked;
   $('#walk-instructions').hidden = next !== 'walk';
   ambienceUI.setView(next);
+  updateInsets();
   selectionActions.render();
   $('#scene-hint').innerHTML = next === '2d'
     ? `${icon('ruler', 14)} Arrastra pisos y muebles <span>·</span> Usa los tiradores para ajustar`
@@ -606,11 +665,17 @@ document.addEventListener('keydown', event => {
   if (command && key === 'z') { event.preventDefault(); undo(event.shiftKey); }
   else if (command && key === 'y') { event.preventDefault(); undo(true); }
   else if (command && key === 's') { event.preventDefault(); $('#save').click(); }
-  else if (key === 'r') rotateItem();
+  else if (command && key === 'd') { event.preventDefault(); duplicateItem(); }
+  else if (command && key === 'c') copyItem();
+  else if (command && key === 'v') { event.preventDefault(); pasteItem(); }
+  else if (event.key.startsWith('Arrow') && !command && !event.altKey) { if (nudgeItem(event.key, event.shiftKey)) event.preventDefault(); }
+  else if (key === 'r' && !command) rotateItem();
   else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelected(); }
 });
 
 ctx.scene.rebuild(state.project);
+scrollHints($('#room-chips'));
+updateInsets();
 ctx.scene.fit();
 library.render();
 inspector.render();

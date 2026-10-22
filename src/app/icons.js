@@ -18,6 +18,7 @@ const paths = {
   rotate: 'M20 8V3l-4 4 M20 8a9 9 0 1 0 1 8',
   copy: 'M8 8h13v13H8Z M16 8V3H3v13h5',
   trash: 'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',
+  panels: 'M3 5h18v14H3Z M8 5v14 M16 5v14',
   focus: 'M3 9V3h6 M15 3h6v6 M21 15v6h-6 M9 21H3v-6',
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7 M15 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0',
   image: 'M3 3h18v18H3Z M3 17l6-6 5 5 3-3 4 4 M16 7h.01',

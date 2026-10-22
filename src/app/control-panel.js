@@ -2,7 +2,7 @@
 // casa y un botón de encendido general, escenas, espacios con su cuenta de luces encendidas,
 // tarjetas de equipos y una hoja de detalle por equipo. Implementación propia sobre el mismo
 // estado del proyecto: cada cambio es un paso de Deshacer y llega al equipo real si está vinculado.
-import { esc } from './dom.js';
+import { esc, scrollHints } from './dom.js';
 import { icon } from './icons.js';
 import { dimByDragging } from './dim-drag.js';
 import { levelOf, inRoom } from '../levels.js';
@@ -378,6 +378,7 @@ export function createControlPanel(ctx) {
     if (ui.sheet) bindSheet(el, item); else bindPanel(el);
     const list = container.querySelector('.cp-devices');
     if (list) list.scrollTop = scroll;
+    scrollHints(container.querySelector('.cp-rooms'));
   }
 
   // Elegir un equipo en la maqueta abre su hoja; elegir una habitación la filtra.

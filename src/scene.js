@@ -212,7 +212,10 @@ export function createScene(host, callbacks) {
     if(item){const group=house.children.find(g=>g.userData.itemId===id);if(group){selectedBox=new THREE.BoxHelper(group,'#f0c18b');selectedBox.material.depthTest=false;selectedBox.renderOrder=10;scene.add(selectedBox);}}
     else if(room){const y=lift(room),bounds=new THREE.Box3(new THREE.Vector3(room.x-room.w/2,y,room.z-room.d/2),new THREE.Vector3(room.x+room.w/2,y+.04,room.z+room.d/2));selectedBox=new THREE.Box3Helper(bounds,'#f0c18b');selectedBox.material.depthTest=false;scene.add(selectedBox);}
   }
-  function composition(){const {width,height}=host.getBoundingClientRect();if(mode==='3d'&&height>450)orbitCamera.setViewOffset(width,height,0,height*.12,width,height);else orbitCamera.clearViewOffset();}
+  // Márgenes que tapan los paneles flotantes (barra de vistas arriba, Ambiente y espacios abajo): la
+  // casa se centra en el espacio que queda libre entre ellos.
+  let insets={top:0,bottom:0};
+  function composition(){const {width,height}=host.getBoundingClientRect(),shift=Math.round((insets.bottom-insets.top)/2);if(mode!=='walk'&&shift)orbitCamera.setViewOffset(width,height,0,shift,width,height);else orbitCamera.clearViewOffset();}
   function resize(){const {width,height}=host.getBoundingClientRect();const aspect=width/Math.max(height,1);orbitCamera.left=-8*aspect;orbitCamera.right=8*aspect;orbitCamera.top=8;orbitCamera.bottom=-8;orbitCamera.updateProjectionMatrix();composition();walkCamera.aspect=aspect;walkCamera.updateProjectionMatrix();renderer.setSize(width,height);look.resize(width,height);dirty=true;}
   new ResizeObserver(resize).observe(host);
   function point(event){const rect=renderer.domElement.getBoundingClientRect();mouse.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(mouse,camera);return raycaster.ray.intersectPlane(plane,new THREE.Vector3());}
@@ -323,7 +326,22 @@ export function createScene(host, callbacks) {
     ambience(preset){ambiencePreset=preset;isNight=['night','cinema'].includes(preset);hemi.intensity=isNight?.45:preset==='cozy'?.95:1.25;sun.intensity=isNight?.6:preset==='cozy'?1.5:2;fill.intensity=preset==='cinema'?.9:.55;fill.color.set(preset==='cinema'?'#879bff':'#bfcee8');scene.background=viewBackground(preset);look.night(isNight);rebuild(project);},
     visualTuning(brightness,warmth){renderer.toneMappingExposure=.35+brightness*.008;sun.color.copy(new THREE.Color('#b7d7ff').lerp(new THREE.Color('#ffd09b'),warmth/100));scene.environmentIntensity=(ambiencePreset==='night'?.16:.3)*(.6+brightness/100*.6);dirty=true;},
     zoom(factor){camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.3,6);camera.updateProjectionMatrix();dirty=true;},
-    fit(){if(!project.rooms.length)return;const minX=Math.min(...project.rooms.map(r=>r.x-r.w/2)),maxX=Math.max(...project.rooms.map(r=>r.x+r.w/2)),minZ=Math.min(...project.rooms.map(r=>r.z-r.d/2)),maxZ=Math.max(...project.rooms.map(r=>r.z+r.d/2));controls.target.set((minX+maxX)/2,0,(minZ+maxZ)/2);const span=Math.max(maxX-minX,maxZ-minZ);camera.zoom=Math.min(1.3,11/span);camera.updateProjectionMatrix();setMode(mode);},
+    // Encuadra la casa del piso activo en el espacio libre: proyecta su caja (con la altura de los
+    // muros) en la cámara y elige el zoom con el que cabe con un margen. Con keepAngle conserva el giro
+    // que eligió el usuario (al abrir o plegar Ambiente cambia el espacio, no la vista).
+    fit(keepAngle=false){const rooms=onLevel(project,activeLevel).rooms;if(!rooms.length||mode==='walk')return;const minX=Math.min(...rooms.map(r=>r.x-r.w/2)),maxX=Math.max(...rooms.map(r=>r.x+r.w/2)),minZ=Math.min(...rooms.map(r=>r.z-r.d/2)),maxZ=Math.max(...rooms.map(r=>r.z+r.d/2)),y=levelElevation(project,activeLevel),top=y+(mode==='3d'?project.wallHeight:0);
+      const center=new THREE.Vector3((minX+maxX)/2,y,(minZ+maxZ)/2);
+      if(keepAngle){const delta=center.clone().sub(controls.target);controls.target.add(delta);camera.position.add(delta);controls.update();}else{controls.target.copy(center);setMode(mode);}camera.updateMatrixWorld();
+      const box=new THREE.Box3();for(const x of [minX,maxX])for(const h of [y,top])for(const z of [minZ,maxZ])box.expandByPoint(new THREE.Vector3(x,h,z).applyMatrix4(camera.matrixWorldInverse));
+      const {width,height}=host.getBoundingClientRect(),free=Math.max(.3,(height-insets.top-insets.bottom)/Math.max(height,1)),aspect=width/Math.max(height,1);
+      camera.zoom=THREE.MathUtils.clamp(Math.min(16*aspect/(box.max.x-box.min.x),16*free/(box.max.y-box.min.y))*.86,.3,3);
+      // El centro de la caja proyectada puede no coincidir con el objetivo (los muros suben): se corrige.
+      const offset=new THREE.Vector3((box.min.x+box.max.x)/2,(box.min.y+box.max.y)/2,0).applyQuaternion(camera.quaternion);controls.target.add(offset);camera.position.add(offset);
+      camera.updateProjectionMatrix();controls.update();dirty=true;},
+    // Direcciones del suelo que en pantalla se ven hacia la derecha y hacia arriba, redondeadas al eje
+    // más cercano: las flechas del teclado mueven el objeto como se ve, gire como gire la cámara.
+    screenAxes(){const axis=v=>{v.y=0;return Math.abs(v.x)>=Math.abs(v.z)?{x:Math.sign(v.x)||1,z:0}:{x:0,z:Math.sign(v.z)||1};};return {right:axis(new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion)),up:axis(new THREE.Vector3(0,1,0).applyQuaternion(camera.quaternion))};},
+    setInsets(top,bottom){if(insets.top===top&&insets.bottom===bottom)return;insets={top,bottom};composition();orbitCamera.updateProjectionMatrix();dirty=true;},
     plan(value){syncPlan(value);},
     setHeat(values){heat=values;rebuild(project);},
     // Piso activo: el que se edita, se recorre y recibe los clics (el plano de apoyo sube con él).

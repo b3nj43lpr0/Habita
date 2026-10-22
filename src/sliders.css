@@ -44,7 +44,7 @@ input[type=range]:focus-visible{outline:2px solid #b6d3ff}
 .field:focus-within{border-color:#ffffff20;box-shadow:none}
 .field input.property-range{grid-column:1/-1;height:var(--slider-h);padding:0;margin:1px 0 3px}
 .field input.property-range.invalid{outline:2px solid #efa58b;outline-offset:3px}
-.ambience-control>span{margin-bottom:11px;font-size:10px}
+.ambience-control>span{margin-bottom:11px;font-size:11px}
 .ambience-control output,.lamp-range output{font-variant-numeric:tabular-nums;font-size:13px;font-weight:450;color:#f5f4f8}
 .ambience-sliders{gap:20px;margin-top:19px}
 .lamp-range{margin-top:13px}

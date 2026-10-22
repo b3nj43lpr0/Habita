@@ -253,36 +253,48 @@ export function createInspector(ctx) {
   function bindProperties(container, item, room) {
     const { project } = state;
     const target = item || room || project;
-    const apply = document.createElement('button');
-    apply.className = 'primary full apply-properties';
-    apply.textContent = 'Aplicar cambios';
-    container.querySelector('.property-section:not(.room-lighting):not(.scene-list)')?.after(apply);
 
-    apply.onclick = () => {
+    // Cada campo se aplica al confirmarlo (Enter, salir del campo, soltar el slider o cerrar el
+    // selector de color), como un paso de Deshacer. Un valor inválido vuelve al anterior.
+    const revert = () => {
+      for (const input of container.querySelectorAll('[data-field]')) {
+        input.value = input.type === 'number' ? round(target[input.dataset.field]) : target[input.dataset.field];
+        const slider = container.querySelector(`[data-linked="${input.dataset.field}"]`);
+        if (slider) { slider.value = input.value; slider.style.setProperty('--fill', fillFor(slider)); }
+      }
+    };
+    const commit = () => {
       const values = {};
       for (const input of container.querySelectorAll('[data-field]')) {
         const key = input.dataset.field;
         const value = input.type === 'number' ? Number(input.value) : input.value.trim();
         if (input.type === 'number' && (input.value === '' || !Number.isFinite(value) || value < Number(input.min) || value > Number(input.max))) {
           toast(`Usa un valor entre ${input.min} y ${input.max} para ${input.getAttribute('aria-label')}.`);
+          revert();
           return;
         }
-        if (key === 'name' && !value) { toast('Escribe un nombre para continuar.'); return; }
+        if (key === 'name' && !value) { toast('El nombre no puede quedar vacío.'); revert(); return; }
         values[key] = value;
       }
-      if (room && overlapsOtherRoom(project, room, { ...room, ...values })) { toast('Estas medidas superponen dos habitaciones.'); return; }
+      if (room && overlapsOtherRoom(project, room, { ...room, ...values })) { toast('Estas medidas superponen dos habitaciones.'); revert(); ctx.scene.rebuild(state.project, state.selected); return; }
       if (Object.keys(values).every(key => target[key] === values[key])) return;
+      const focused = document.activeElement?.dataset.field || document.activeElement?.dataset.linked;
       actions.checkpoint();
       Object.assign(target, values);
       if (item && isOpening(item)) alignOpening(item, project);
       if (!item) project.items.filter(isOpening).forEach(o => alignOpening(o, project));
       actions.changed();
-      toast('Cambios aplicados.');
+      // El panel se redibuja: el foco vuelve al mismo campo para seguir con el teclado.
+      if (focused) $(`#inspector-content [data-field="${focused}"], #inspector-content [data-linked="${focused}"]`)?.focus({ preventScroll: true });
     };
 
-    container.querySelectorAll('[data-field]').forEach(input => input.addEventListener('keydown', event => {
-      if (event.key === 'Enter') { event.preventDefault(); apply.click(); }
-    }));
+    container.querySelectorAll('[data-field]').forEach(input => {
+      input.addEventListener('change', commit);
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); commit(); }
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); revert(); input.blur(); }
+      });
+    });
 
     container.querySelectorAll('[data-linked]').forEach(slider => {
       const key = slider.dataset.linked;
@@ -297,11 +309,9 @@ export function createInspector(ctx) {
         });
       };
       slider.onchange = () => {
-        const focused = document.activeElement === slider;
         cancelPreview();
         ctx.scene.rebuild(state.project, state.selected);
-        apply.click();
-        if (focused) container.querySelector(`[data-linked="${key}"]`)?.focus({ preventScroll: true });
+        commit();
       };
       slider.onkeydown = event => {
         if (event.key !== 'Escape') return;

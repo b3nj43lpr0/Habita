@@ -2,7 +2,7 @@ import { catalog, categories, makeItem, isOpening } from '../catalog.js';
 import { round, snap, warningsFor, alignOpening } from '../model.js';
 import { thumbnail } from '../furniture.js';
 import { isClimate } from '../climate.js';
-import { $, esc, fmt, toast, modal } from './dom.js';
+import { $, esc, fmt, toast, modal, plain, scrollHints } from './dom.js';
 import { icon } from './icons.js';
 import { mountPlanTools } from './floor-plan.js';
 import { baseLevel, levelsOf, onLevel } from '../levels.js';
@@ -36,13 +36,16 @@ export function createLibrary(ctx) {
       container.querySelectorAll('[data-category]').forEach(b => b.classList.toggle('active', b === button));
       renderAssets();
     });
+    const chips = container.querySelector('.categories');
+    scrollHints(chips);
+    chips.querySelector('.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     renderAssets();
   }
 
   function renderAssets() {
-    const query = state.query.toLocaleLowerCase('es');
+    const query = plain(state.query.trim());
     const filtered = catalog.filter(a =>
-      (state.category === 'Todos' || state.category === a.category) && `${a.name} ${a.category}`.toLocaleLowerCase('es').includes(query));
+      (state.category === 'Todos' || state.category === a.category) && plain(`${a.name} ${a.category}`).includes(query));
     $('#catalog-total').textContent = `${filtered.length} objetos`;
     const grid = $('#asset-grid');
     grid.innerHTML = filtered.length

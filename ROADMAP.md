@@ -94,6 +94,11 @@ Avance de 0.9.0: aspiradora robot (`vacuum.*`) en el catálogo, con recorrido an
 piloto de estado, batería, órdenes limpiar/pausar/a la base según `supported_features`, escenas, panel de
 control y laboratorio. Pendiente de 0.9.0: aspiradora por MCP, cámaras, paredes en ángulo, cotas y PDF,
 barrido de puertas y circulación.
+Hecho en 0.8.4 (revisión de UI/UX): avisos con Deshacer al eliminar y al deshacer, búsqueda sin tildes,
+barra de selección que no tapa el objeto, Ambiente plegado por defecto (recuerda su estado), zoom junto a los
+botones flotantes, encuadre según el espacio libre, categorías en una fila, inspector que aplica al confirmar
+cada campo, flechas para mover, Ctrl+D, Ctrl+C / Ctrl+V y textos de al menos 10,5 px. Pendiente de la
+revisión: selección múltiple, punto de partida del recorrido y ordenar el CSS en capas.
 
 ### Alcance original
 
