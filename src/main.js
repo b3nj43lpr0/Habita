@@ -13,6 +13,7 @@ import { createScene } from './scene3d/scene.js';
 import { calibratePlan } from './model/plan.js';
 import { baseLevel, levelLimit, levelsOf, levelOf, onLevel, sameLevel } from './model/levels.js';
 import { roomCandidate, roomEditError, applyRoomEdit } from './model/room-edit.js';
+import { snapToWalls } from './model/wall-snap.js';
 import { createAmbienceUI } from './ui/ambience-ui.js';
 import { createDimensions } from './ui/dimensions.js';
 import { templates, templatePreview } from './model/templates.js';
@@ -218,6 +219,11 @@ ctx.scene = createScene($('#scene'), {
     const dx = snap(x, state.snapping) - item.x, dz = snap(z, state.snapping) - item.z;
     const moving = state.selection.includes(id) ? selectedItems() : [item];
     for (const o of moving) { o.x = round(o.x + dx); o.z = round(o.z + dz); }
+    // Un mueble solo se pega a la pared cercana; en movimiento libre no hay imán.
+    if (state.snapping && moving.length === 1 && !isOpening(item)) {
+      const { x: sx, z: sz, rotation } = snapToWalls(item, state.project);
+      Object.assign(item, { x: sx, z: sz, rotation });
+    }
     if (moving.some(isOpening)) {
       moving.filter(isOpening).forEach(o => alignOpening(o, state.project));
       ctx.scene.rebuild(state.project, id);
@@ -443,6 +449,8 @@ function rotateItem() {
   if (!turning.length) { toast('Las puertas y ventanas se orientan automáticamente a la pared.'); return; }
   checkpoint();
   for (const item of turning) item.rotation = (item.rotation + 90) % 360;
+  // Un mueble que estaba pegado a la pared vuelve a apoyarse en ella con su nueva orientación.
+  if (turning.length === 1 && state.snapping) Object.assign(turning[0], (({ x, z }) => ({ x, z }))(snapToWalls(turning[0], state.project, { turn: false })));
   changed();
 }
 

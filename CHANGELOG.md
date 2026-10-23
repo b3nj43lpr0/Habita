@@ -3,6 +3,16 @@
 Lo nuevo de cada versión de Habita Studio, de la más reciente a la más antigua. Lo que
 viene está en [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## 0.9.1 · Muebles que se ajustan a las paredes
+
+- **Imán de paredes**: al arrastrar un mueble a menos de 25 cm de un muro, queda pegado a la
+  cara interior de la pared, sin hueco ni solape, y gira para dar la espalda al muro
+  (camas, sofás, clósets, cocina…). Las sillas, plantas, lámparas y alfombras se pegan sin girar.
+- En una esquina se apoya en las dos paredes, y junto a otro mueble pegado al mismo muro
+  (por ejemplo módulos de cocina) se arrima a su costado.
+- Al girar un mueble que estaba contra la pared, vuelve a apoyarse en ella.
+- Con **Movimiento libre** (botón «Ajuste a 10 cm») o al mover un grupo, el imán no actúa.
+
 ## 0.9.0 · Casa conectada, control remoto, IA que edita y herramientas de diseño
 
 Editor:
