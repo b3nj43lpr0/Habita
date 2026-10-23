@@ -13,7 +13,7 @@ No necesitas saber de computación ni crear una cuenta. Son tres pasos:
 1. **Descarga el instalador.** Entra a la página de
    [descargas (Releases)](https://github.com/b3nj43lpr0/Habita/releases/latest) y, en la
    sección **Assets**, haz clic en el archivo que empieza con **Habita-Studio-Setup** y termina
-   en `.exe` (por ejemplo `Habita-Studio-Setup-0.9.0.exe`). Se guardará en tu carpeta
+   en `.exe` (por ejemplo `Habita-Studio-Setup-0.9.1.exe`). Se guardará en tu carpeta
    **Descargas**.
 2. **Ábrelo con doble clic.** Lo encuentras en **Descargas** o en el aviso de descarga del
    navegador. No hay que elegir opciones ni pedir permisos de administrador.
