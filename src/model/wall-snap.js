@@ -1,14 +1,16 @@
 // Imán de paredes: al arrastrar un mueble cerca de una pared, su respaldo queda pegado a la cara
 // interior del muro (sin hueco ni solape) y, si hace falta, gira para dar la espalda a la pared.
 // Cerca de una esquina, o junto a otro mueble pegado a la misma pared, también ajusta el costado.
-import { byId, isOpening } from './catalog.js';
+import { byId, isOpening, flatKinds } from './catalog.js';
 import { round } from './model.js';
 import { onLevel, levelOf } from './levels.js';
 
 // Distancia (m) a la que el imán empieza a actuar.
 export const wallReach = .25;
 // Objetos cuya orientación no importa o que no conviene girar solos: solo se pegan, sin girar.
-const keepRotation = ['rug', 'round', 'plant', 'lamp', 'vacuum', 'pouf', 'stool', 'chair'];
+const keepRotation = ['rug', 'round', 'plant', 'lamp', 'vacuum', 'pouf', 'stool', 'chair', 'coatrack'];
+// Estructura y exterior: se ubican a mano, en cualquier ángulo; el imán no los mueve.
+const free = ['partition', 'fence', 'tree', 'grass', 'pool'];
 // En el modelo, con rotación 0 el respaldo mira hacia -z; cada lado de la habitación tiene su giro.
 const sides = [
   { side: 'n', axis: 'z', sign: -1, rotation: 0 },
@@ -25,7 +27,7 @@ const extents = (item, rotation) => {
 // Devuelve { x, z, rotation, wall } con la posición ajustada; `wall` es el lado pegado (o null).
 export function snapToWalls(item, project, { x = item.x, z = item.z, turn = true } = {}) {
   const result = { x, z, rotation: item.rotation, wall: null };
-  if (isOpening(item)) return result;
+  if (isOpening(item) || free.includes(byId(item.asset)?.kind)) return result;
   const level = onLevel(project, levelOf(item));
   const room = level.rooms.find(r => x >= r.x - r.w / 2 && x <= r.x + r.w / 2 && z >= r.z - r.d / 2 && z <= r.z + r.d / 2);
   if (!room) return result;
@@ -66,7 +68,7 @@ export function snapToWalls(item, project, { x = item.x, z = item.z, turn = true
     if (!pinned.has(along)) {
       let snapTo = null, best = wallReach / 2;
       for (const o of level.items) {
-        if (o.id === item.id || isOpening(o) || byId(o.asset)?.kind === 'rug' || norm(o.rotation) % 90) continue;
+        if (o.id === item.id || isOpening(o) || flatKinds.includes(byId(o.asset)?.kind) || norm(o.rotation) % 90) continue;
         if (o.elevation >= item.elevation + item.h || item.elevation >= o.elevation + o.h) continue;
         const oe = extents(o, norm(o.rotation));
         const oBack = primary.sign < 0 ? o[primary.axis] - oe[primary.axis] : o[primary.axis] + oe[primary.axis];

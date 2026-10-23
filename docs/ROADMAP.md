@@ -102,6 +102,11 @@ control desde el celular por QR, IA que edita el plano (con permiso y apagado au
 recorrido. Pendiente: Tuya / Smart Life por QR, widgets (no aplican en Windows),
 aspiradora por MCP, cámaras, paredes en ángulo, cotas en la imagen exportada y PDF,
 barrido de puertas y circulación.
+Hecho en 0.10.0: actualización automática (electron-updater con los Releases de GitHub), PDF del plano,
+espacios unidos en L o en T, muros libres en cualquier ángulo, arco de puertas con su sentido, revisión de
+circulación, calculadora de materiales con terminaciones de piso, sol real por ciudad, mes y hora, 18 objetos
+nuevos y modelos GLB importados. Pendiente: paredes en ángulo con puertas insertas (hoy el muro libre no
+lleva aberturas), habitaciones de forma libre y texturas fotográficas CC0.
 Hecho en 0.8.4 (revisión de UI/UX): avisos con Deshacer al eliminar y al deshacer, búsqueda sin tildes,
 barra de selección que no tapa el objeto, Ambiente plegado por defecto (recuerda su estado), zoom junto a los
 botones flotantes, encuadre según el espacio libre, categorías en una fila, inspector que aplica al confirmar

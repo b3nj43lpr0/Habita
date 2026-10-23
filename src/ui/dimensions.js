@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { onLevel, inRoom } from '../model/levels.js';
 import { isOpening } from '../model/catalog.js';
+import { doorSwing, isDoor, circulationIssues } from '../model/circulation.js';
 
 // Cotas del plano 2D, dibujadas en SVG sobre la maqueta y recalculadas con la cámara:
 // - fuera de la casa, arriba y a la izquierda: una cadena con cada tramo entre muros y el total;
@@ -79,7 +80,7 @@ export function createDimensions(ctx) {
     paintButton();
     // La huincha se ve aunque las cotas estén ocultas.
     const measures = [state.measure, state.measurePreview].filter(Boolean).map(({ a, b }) => ({ a: [a.x, a.z], b: [b.x, b.z], text: dimLabel(Math.hypot(b.x - a.x, b.z - a.z)), kind: 'measure' }));
-    svg.style.display = (enabled || measures.length) && state.view === '2d' && !state.control ? '' : 'none';
+    svg.style.display = state.view === '2d' && !state.control ? '' : 'none';
     if (svg.style.display) return;
     const view = onLevel(state.project, state.level);
     const at = (x, z) => {
@@ -90,7 +91,16 @@ export function createDimensions(ctx) {
     const scale = Math.hypot(...at(1, 0).map((v, i) => v - at(0, 0)[i]));
     const item = state.selection.length < 2 ? view.items.find(o => o.id === state.selected) : null;
     const parts = [];
-    for (const { a, b, text, kind } of [...(enabled ? planDimensions(view, state.project.wallThickness, item, 26 / scale) : []), ...measures]) {
+    // Arco de cada puerta: por dónde barre la hoja al abrirse (siempre visible en el plano).
+    for (const door of view.items.filter(isDoor)) {
+      const { hinge, arc } = doorSwing(door), points = arc.map(p => at(...p)), [hx, hy] = at(...hinge), [lx, ly] = points.at(-1);
+      parts.push(`<path class="door-swing" d="M${hx} ${hy} L${lx} ${ly} M${points.map(p => p.join(' ')).join(' L')}"/>`);
+    }
+    // Revisión de circulación: los pasos angostos en rojo, con su ancho.
+    const issues = state.circulation ? circulationIssues(state.project).filter(i => i.level === state.level && i.line) : [];
+    const lines = [...(enabled ? planDimensions(view, state.project.wallThickness, item, 26 / scale) : []), ...measures,
+      ...issues.map(i => ({ a: i.line[0], b: i.line[1], text: dimLabel(i.width), kind: 'issue' }))];
+    for (const { a, b, text, kind } of lines) {
       const [x1, y1] = at(...a), [x2, y2] = at(...b), length = Math.hypot(x2 - x1, y2 - y1);
       if (length < 6) continue;
       // Línea con remates perpendiculares y el texto centrado sobre ella (si cabe).

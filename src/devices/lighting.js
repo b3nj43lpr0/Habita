@@ -1,5 +1,5 @@
 import { inRoom } from '../model/levels.js';
-export const isLamp=item=>['floor-lamp','lamp'].includes(item?.asset);
+export const isLamp=item=>['floor-lamp','lamp','pendant'].includes(item?.asset);
 export const defaultLight=Object.freeze({on:true,brightness:100,warmth:72,mode:'temperature',color:'#ffb36b'});
 export const lightFor=item=>({...defaultLight,...item.light});
 export function lightColor(state){

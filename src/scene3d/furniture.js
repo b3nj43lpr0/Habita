@@ -3,11 +3,41 @@ import { byId } from '../model/catalog.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { surfaceTexture } from './surfaces.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// Modelos importados (.glb): se leen una vez por proyecto y cada objeto usa una copia. Mientras
+// cargan se ve una caja; al terminar se avisa para volver a dibujar.
+const loaded=new Map(),waiting=new Set();
+let onModelLoaded=()=>{};
+export const modelLoaded=callback=>{onModelLoaded=callback;};
+export function registerModels(models=[]){
+  for(const m of models){
+    if(loaded.has(m.id)&&loaded.get(m.id).data===m.data)continue;
+    const entry={data:m.data,scene:null};loaded.set(m.id,entry);
+    new GLTFLoader().load(m.data,gltf=>{
+      // Se normaliza a una caja de 1 × 1 × 1 apoyada en el suelo: el objeto la escala a sus medidas.
+      const root=gltf.scene,bounds=new THREE.Box3().setFromObject(root),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
+      root.position.sub(new THREE.Vector3(center.x,bounds.min.y,center.z));
+      const unit=new THREE.Group();unit.add(root);unit.scale.set(1/Math.max(size.x,1e-3),1/Math.max(size.y,1e-3),1/Math.max(size.z,1e-3));
+      entry.scene=unit;entry.size=size;
+      for(const group of waiting)if(group.userData.modelId===m.id)fillModel(group);
+      onModelLoaded(m.id);
+    },undefined,()=>{entry.failed=true;});
+  }
+}
+export const modelSize=id=>loaded.get(id)?.size||null;
+function fillModel(group){
+  const entry=loaded.get(group.userData.modelId);if(!entry?.scene)return;
+  waiting.delete(group);
+  const holder=group.children[0];holder.clear();holder.material?.dispose?.();
+  const copy=entry.scene.clone(true);copy.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.userData.itemId=group.userData.itemId;}});
+  copy.position.y=-.5;holder.add(copy);holder.material=new THREE.MeshBasicMaterial({visible:false});
+}
 
 export function furniture(item, preview=false) {
   const a=byId(item.asset), g=new THREE.Group();
   const soft=['sofa','bed','chair','rug','pouf','curtain'].includes(a.kind);
-  const timber=['table','round','cabinet','wardrobe','shelf','kitchen','door','tv','console','bench','crib','planter','stairs'].includes(a.kind);
+  const timber=['table','round','cabinet','wardrobe','shelf','kitchen','door','tv','console','bench','crib','planter','stairs','wallshelf','fence','coatrack'].includes(a.kind);
   const colored=new THREE.MeshPhysicalMaterial({color:item.color,roughness:soft?.96:.65,sheen:soft?.55:0,sheenRoughness:.8,sheenColor:'#fff3dd',map:soft?surfaceTexture('fabric'):timber?surfaceTexture('wood'):null});
   const wood=new THREE.MeshStandardMaterial({color:'#bd9b76',roughness:.65,map:surfaceTexture('wood')});
   const dark=new THREE.MeshStandardMaterial({color:'#343e48',roughness:.6});
@@ -68,6 +98,7 @@ export function furniture(item, preview=false) {
       for(let i=0;i<9;i++){const angle=i*2.4, y=.46+i*.052;const leaf=mesh(new THREE.SphereGeometry(1,12,8),colored,Math.cos(angle)*.18,y,Math.sin(angle)*.18);leaf.scale.set(.17,.17,.26);leaf.rotation.set(.4,angle,.5);}break;
     }
     case 'lamp':
+      if(a.id==='pendant'){cylinder(.012,.012,.55,0,.72,0,dark);cylinder(.16,.5,.4,0,.25,0,new THREE.MeshStandardMaterial({color:item.color,emissive:'#ffd49a',emissiveIntensity:1.15,roughness:.85,side:THREE.DoubleSide})).userData.lampShade=true;break;}
       cylinder(.3,.36,.04,0,.02,0,dark);cylinder(.018,.018,.73,0,.4,0,metal);
       cylinder(.26,.45,.27,0,.84,0,new THREE.MeshStandardMaterial({color:item.color,emissive:'#ffd49a',emissiveIntensity:1.15,roughness:.85})).userData.lampShade=true;break;
     case 'ac': {
@@ -129,6 +160,35 @@ export function furniture(item, preview=false) {
     case 'stairs':
       // Sube hacia el fondo (-z local): el frente es el primer peldaño.
       for(let i=0;i<12;i++)box(1,(i+1)/12,1/12,0,(i+1)/24,.5-(i+.5)/12,i%2?colored:wood);break;
+    // 0.10.0
+    case 'partition':box(1,1,1,0,.5,0,new THREE.MeshStandardMaterial({color:item.color,roughness:.88}));break;
+    case 'sectional':
+      box(1,.15,.42,0,.08,-.29,wood);box(.36,.15,.6,.32,.08,.2,wood);
+      box(1,.45,.14,0,.45,-.43);box(.07,.38,.42,-.465,.35,-.29);
+      for(const x of [-.32,0])box(.3,.17,.3,x,.24,-.22);box(.32,.17,.86,.32,.24,.07);
+      for(const x of [-.32,0,.32])box(.3,.25,.1,x,.47,-.33);break;
+    case 'bunk':
+      for(const x of [-.47,.47])for(const z of [-.47,.47])box(.06,1,.06,x,.5,z,wood);
+      for(const y of [.14,.66]){box(.96,.05,.98,0,y,0,wood);box(.9,.12,.94,0,y+.09,0,white);box(.4,.06,.18,0,y+.17,-.36,colored);}
+      box(.96,.12,.03,0,.9,.48,wood);for(const y of [.3,.5,.7])box(.03,.03,.04,.3,y,.5,wood);box(.03,.95,.03,.18,.47,.5,wood);box(.03,.95,.03,.42,.47,.5,wood);break;
+    case 'piano':
+      box(1,1,.6,0,.5,-.2);box(1,.07,.45,0,.55,.27);box(.92,.03,.32,0,.6,.3,white);
+      for(let i=0;i<14;i++)box(.025,.02,.18,-.42+i*.065,.625,.22,dark);for(const x of [-.47,.47])box(.05,.5,.06,x,.25,.45);break;
+    case 'frame':{
+      box(1,1,1,0,.5,0);const art=new THREE.MeshStandardMaterial({color:'#e8dcc4',roughness:.8});box(.86,.82,.35,0,.5,.4,art);
+      box(.4,.3,.36,-.15,.55,.41,new THREE.MeshStandardMaterial({color:'#7b97a8',roughness:.9}));box(.3,.4,.36,.2,.4,.42,new THREE.MeshStandardMaterial({color:'#c98f6b',roughness:.9}));break;
+    }
+    case 'wallshelf':box(1,.1,1,0,.05,0);for(const x of [-.3,-.22,.25])box(.06,.75,.6,x,.47,-.1,x>0?white:colored);break;
+    case 'coatrack':cylinder(.45,.5,.03,0,.015,0,dark);cylinder(.035,.035,1,0,.5,0);for(let i=0;i<4;i++){const hook=box(.3,.02,.04,Math.cos(i*Math.PI/2)*.15,.93,Math.sin(i*Math.PI/2)*.15,metal);hook.rotation.y=-i*Math.PI/2;}break;
+    case 'tree':{
+      cylinder(.06,.09,.45,0,.225,0,wood);
+      for(const [x,y,z,r] of [[0,.62,0,.32],[.18,.55,.1,.22],[-.16,.58,-.08,.24],[.05,.82,-.05,.2]])mesh(new THREE.SphereGeometry(r,16,12),colored,x,y,z);break;
+    }
+    case 'grass':box(1,1,1);break;
+    case 'pool':box(1,1,1,0,.5,0,white);box(.9,1.02,.84,0,.51,0,new THREE.MeshStandardMaterial({color:item.color,roughness:.08,metalness:.1,emissive:'#1d6f8f',emissiveIntensity:.25}));break;
+    case 'fence':
+      for(let i=0;i<=8;i++)box(.035,1,1,-.48+i*.12,.5,0);box(1,.07,.6,0,.25,-.2,wood);box(1,.07,.6,0,.78,-.2,wood);break;
+    case 'custom':box(1,1,1,0,.5,0,new THREE.MeshStandardMaterial({color:item.color,transparent:true,opacity:.35,roughness:.9}));break;
     case 'window': {
       const glass=new THREE.MeshStandardMaterial({color:item.color,transparent:true,opacity:.35,roughness:.2,metalness:.15});
       box(.97,.97,.08,0,.5,0,glass);for(const x of [-.48,0,.48])box(.035,1,1,x,.5,0,white);box(1,.035,1,0,.02,0,white);box(1,.035,1,0,.98,0,white);break;
@@ -142,6 +202,7 @@ export function furniture(item, preview=false) {
   g.rotation.y=(preview?0:item.rotation)*Math.PI/180;
   g.userData.itemId=item.id;
   g.traverse(o=>{if(o.isMesh)o.userData.itemId=item.id;});
+  if(a.kind==='custom'){g.userData.modelId=item.model;waiting.add(g);fillModel(g);}
   return g;
 }
 

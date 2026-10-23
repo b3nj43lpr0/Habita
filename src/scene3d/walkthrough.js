@@ -11,7 +11,7 @@ function circleRect(x,z,r,cx,cz,w,d,rotation=0){
 }
 export function walkSolids(project){
   const walls=wallsFor(project).flatMap(w=>wallPieces(w,project).filter(p=>p.bottom<1.8&&p.top>.05).map(p=>({x:w.axis==='x'?(p.a+p.b)/2:w.c,z:w.axis==='z'?(p.a+p.b)/2:w.c,w:w.axis==='x'?p.b-p.a+project.wallThickness:project.wallThickness,d:w.axis==='z'?p.b-p.a+project.wallThickness:project.wallThickness,rotation:0})));
-  const furniture=project.items.filter(o=>!['rug','door','stairs'].includes(byId(o.asset)?.kind)&&(o.elevation||0)<1.8&&(o.elevation||0)+o.h>.06);
+  const furniture=project.items.filter(o=>!['rug','grass','pool','door','stairs'].includes(byId(o.asset)?.kind)&&(o.elevation||0)<1.8&&(o.elevation||0)+o.h>.06);
   return [...walls,...furniture];
 }
 export function canWalkAt(project,x,z,radius=.2,solids=walkSolids(project)){

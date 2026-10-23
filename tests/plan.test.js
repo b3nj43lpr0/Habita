@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { exampleProject, validateProject } from '../src/model/model.js';
-import { catalog, makeItem } from '../src/model/catalog.js';
+import { catalog, listed, makeItem } from '../src/model/catalog.js';
 import { newPlan, calibratePlan, validPlan, planImageLimit } from '../src/model/plan.js';
 
 const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -44,7 +44,8 @@ test('el catálogo amplía cada tipo de espacio con entradas válidas', () => {
   for (const category of ['Living', 'Cocina', 'Baño', 'Dormitorio', 'Estudio', 'Exterior']) {
     assert.ok(catalog.filter(a => a.category === category).length >= 3, category);
   }
-  for (const asset of catalog) {
+  // El modelo importado necesita su archivo .glb: se prueba en models.test.js.
+  for (const asset of listed) {
     assert.ok([asset.w, asset.d, asset.h, asset.elevation].every(n => Number.isFinite(n) && n >= 0), asset.id);
     assert.ok(asset.presets.every(p => p.length === 3 && p.every(n => n > 0)), asset.id);
     // Cada entrada nueva produce un objeto que el validador de proyectos acepta.

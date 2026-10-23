@@ -10,6 +10,7 @@ const { createRemote, remoteTools } = require('./remote.cjs');
 const { createEventLog } = require('./event-log.cjs');
 const { createAiBridge } = require('./ai-bridge.cjs');
 const { createTray } = require('./tray.cjs');
+const { createUpdater } = require('./updater.cjs');
 
 let win;
 const homeAssistant = new HomeAssistantClient();
@@ -66,7 +67,14 @@ app.whenReady().then(() => {
   if (settings.remote) setPhoneAccess(true).catch(() => {});
   restoreHomeAssistant();
   if (settings.aiAccess) setAiAccess(true).catch(() => {});
+  updater.start();
 });
+
+// Versión nueva: se descarga sola y se instala al reiniciar (ver updater.cjs).
+const updater = createUpdater({ notify: (channel, payload) => notify(channel, payload), trayNotify: (title, body) => tray?.notify(title, body), beforeInstall: () => { quitting = true; } });
+ipcMain.handle('update:status', event => { trusted(event); return updater.status(); });
+ipcMain.handle('update:check', event => { trusted(event); return updater.check(); });
+ipcMain.handle('update:install', event => { trusted(event); return updater.install(); });
 
 function trusted(event) {
   if (!win || event.sender !== win.webContents) throw new Error('Origen inválido');
@@ -80,7 +88,7 @@ ipcMain.handle('open-link', async (event, url) => {
 });
 
 ipcMain.handle('save-project', async (event, contents) => {
-  if (event.sender !== win.webContents || typeof contents !== 'string' || contents.length > 10_000_000) throw new Error('Proyecto inválido');
+  if (event.sender !== win.webContents || typeof contents !== 'string' || contents.length > 30_000_000) throw new Error('Proyecto inválido');
   const result = await dialog.showSaveDialog(win, { defaultPath: 'Mi casa.habita', filters: [{ name: 'Proyecto Habita', extensions: ['habita'] }] });
   if (result.canceled) return false;
   await fs.writeFile(result.filePath, contents, 'utf8');
@@ -91,8 +99,44 @@ ipcMain.handle('open-project', async (event) => {
   const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Proyecto Habita', extensions: ['habita', 'json'] }] });
   if (result.canceled) return null;
   const stat = await fs.stat(result.filePaths[0]);
-  if (stat.size > 10_000_000) throw new Error('El archivo supera 10 MB');
+  if (stat.size > 25_000_000) throw new Error('El archivo supera 25 MB');
   return fs.readFile(result.filePaths[0], 'utf8');
+});
+
+// Informe en PDF: el HTML (sin scripts) se abre en una ventana oculta, sin acceso a nada, y Chromium
+// lo imprime a PDF en tamaño carta A4.
+ipcMain.handle('export-pdf', async (event, html, name) => {
+  trusted(event);
+  if (typeof html !== 'string' || html.length > 30_000_000 || typeof name !== 'string') throw new Error('Informe inválido.');
+  const result = await dialog.showSaveDialog(win, { defaultPath: `${name.replace(/[\\/:*?"<>|]/g, '').slice(0, 80) || 'Mi casa'}.pdf`, filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+  if (result.canceled) return false;
+  const file = path.join(app.getPath('temp'), `habita-informe-${crypto.randomUUID()}.html`);
+  const printer = new BrowserWindow({ show: false, webPreferences: { javascript: false, sandbox: true, contextIsolation: true, nodeIntegration: false } });
+  printer.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  printer.webContents.on('will-navigate', e => e.preventDefault());
+  try {
+    await fs.writeFile(file, html, 'utf8');
+    await printer.loadFile(file);
+    const pdf = await printer.webContents.printToPDF({ pageSize: 'A4', printBackground: true, margins: { top: .5, bottom: .5, left: .5, right: .5 } });
+    await fs.writeFile(result.filePath, pdf);
+  } finally {
+    printer.destroy();
+    fs.rm(file, { force: true }).catch(() => {});
+  }
+  shell.openPath(result.filePath).catch(() => {});
+  return true;
+});
+
+// Modelo 3D (.glb) elegido en el diálogo nativo; vuelve como data URL.
+ipcMain.handle('open-model', async (event) => {
+  trusted(event);
+  const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Modelo 3D (GLB)', extensions: ['glb'] }] });
+  if (result.canceled) return null;
+  const stat = await fs.stat(result.filePaths[0]);
+  if (stat.size > 3_000_000) throw new Error('El modelo supera 3 MB. Busca una versión más liviana.');
+  const data = await fs.readFile(result.filePaths[0]);
+  if (data.subarray(0, 4).toString() !== 'glTF') throw new Error('El archivo no es un modelo GLB.');
+  return { name: path.basename(result.filePaths[0], path.extname(result.filePaths[0])).slice(0, 80), data: `data:model/gltf-binary;base64,${data.toString('base64')}` };
 });
 
 ipcMain.handle('open-image', async (event) => {

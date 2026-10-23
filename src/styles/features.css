@@ -1,0 +1,55 @@
+/* 0.10.0: actualización, PDF, circulación, materiales, sol y modelos importados. */
+#update-status{border-radius:999px;padding:3px 12px;background:linear-gradient(135deg,#f0c18b40,#f0c18b1a);border:1px solid #f0c18b66;color:#ffe1bd;font-size:11.5px}
+#update-status[data-status=ready],#update-status[data-status=available]{animation:update-glow 2.4s ease-in-out 3}
+#update-status b{font-weight:650}
+@keyframes update-glow{50%{box-shadow:0 0 14px #f0c18b80}}
+@media (prefers-reduced-motion:reduce){#update-status{animation:none!important}}
+#dimensions .door-swing{fill:none;stroke:#f3d6ae;stroke-width:1.2;stroke-dasharray:4 3;opacity:.85}
+#dimensions .dim.issue line{stroke:#ff8a7a;stroke-width:2}
+#dimensions .dim.issue rect{fill:#7a2a24e6;stroke:#ff8a7a}
+#dimensions .dim.issue text{fill:#ffe1dc}
+.project-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 4px}
+.project-tools button{display:flex;align-items:center;justify-content:center;gap:7px;font-size:12.5px;padding:8px 6px}
+.project-tools .full{grid-column:1/-1}
+.issue-list{display:grid;gap:6px;max-height:46vh;overflow:auto;margin:12px 0}
+.issue-list button{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:9px 11px;border-radius:12px;border:1px solid #ff8a7a40;background:#ff8a7a14;color:#f3e6e3;font-size:12.5px}
+.issue-list b{display:block;font-size:11px;color:#ffb3a8;font-weight:600;margin-bottom:2px}
+.materials-form{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px;margin:12px 0}
+.materials-form label{display:grid;gap:4px;font-size:11.5px;color:#c4cbe0}
+.materials-form label>span{display:flex;align-items:center;gap:6px;color:#aab6ce}
+.materials-form input,.materials-form select{width:100%;min-width:0}
+.materials-table{max-height:38vh;overflow:auto;margin:6px 0 10px}
+.materials-row{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:8px;padding:7px 4px;border-bottom:1px solid #ffffff12;font-size:12.5px;align-items:start}
+.materials-row small{display:block;color:#aab6ce;font-size:11px}
+.materials-row.head{color:#aab6ce;font-size:11px;font-weight:600}
+.materials-row.total{border-top:1px solid #ffffff2a;border-bottom:0;font-weight:650}
+.sun-section h3{display:flex;justify-content:space-between;align-items:center}
+.switch{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#c9d0e2;cursor:pointer}
+.sun-field{display:grid;gap:6px;margin:10px 0;font-size:12px;color:#c4cbe0}
+.sun-field>span{display:flex;justify-content:space-between}
+.sun-field b{font-weight:600;color:#f3d6ae;font-variant-numeric:tabular-nums}
+.sun-note,.swing-note{display:block;color:#aab6ce;font-size:11px;line-height:1.45;margin:6px 0}
+.sun-section button{margin-top:6px}
+.shape-field{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:8px;margin:8px 0;font-size:12px;color:#c4cbe0}
+.shape-field select{min-width:0}
+.inspector-hint{font-size:11.5px;color:#c4cbe0;line-height:1.5;padding:9px 11px;border-radius:12px;background:#ffffff0d;margin:10px 0}
+.finish-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 12px}
+.finish-grid button{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:12px;font-size:12px;color:#d7dbec;text-align:left}
+.finish-swatch{width:26px;height:26px;border-radius:8px;flex:none;border:1px solid #fff3;background:#c5ad8e}
+.finish-wood{background:repeating-linear-gradient(0deg,#c5ad8e 0 7px,#b39a7a 7px 8px)}
+.finish-laminate{background:repeating-linear-gradient(0deg,#d5c8ab 0 9px,#c2b493 9px 10px)}
+.finish-tile{background:#c9c4b8;background-image:linear-gradient(#fff6 1px,transparent 1px),linear-gradient(90deg,#fff6 1px,transparent 1px);background-size:9px 9px}
+.finish-porcelain{background:#d8d4cc;background-image:linear-gradient(#fff5 1px,transparent 1px),linear-gradient(90deg,#fff5 1px,transparent 1px);background-size:13px 13px}
+.finish-carpet{background:radial-gradient(circle at 30% 30%,#a99a8a,#8d7f71)}
+.finish-concrete{background:linear-gradient(135deg,#b2b5b2,#9a9e9c)}
+.finish-deck{background:repeating-linear-gradient(90deg,#9a7a58 0 6px,#5f4a36 6px 7px)}
+.finish-grass{background:radial-gradient(circle at 40% 40%,#8bb46c,#5f8a4b)}
+.import-model{margin-top:12px}
+.asset-card.imported{position:relative;padding:0}
+.asset-card.imported .asset-pick{all:unset;display:block;width:100%;cursor:pointer;text-align:center;padding:inherit}
+.asset-card.imported .asset-pick strong,.asset-card.imported .asset-pick .asset-size{display:block}
+.model-preview{display:grid;place-items:center;color:#f0c18b}
+.remove-model{position:absolute;top:6px;right:6px;width:26px;height:26px}
+.materials-form input{border-radius:10px;border:1px solid #ffffff24;background:#0b10204d;color:#eef0f6;padding:7px 9px;font:inherit;font-size:12.5px}
+.materials-form select{border-radius:10px;padding:7px 9px;font-size:12.5px}
+.materials-form label{align-content:end}

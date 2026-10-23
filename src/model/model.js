@@ -1,4 +1,4 @@
-import { byId, isOpening, makeItem } from './catalog.js';
+import { byId, isOpening, makeItem, flatKinds } from './catalog.js';
 import { isLamp,validLight } from '../devices/lighting.js';
 import { isClimate,validClimate } from '../devices/climate.js';
 import { validScenes } from './scenes.js';
@@ -11,6 +11,10 @@ import { validNotes } from './notes.js';
 import { validPrice,validLink } from './shopping.js';
 import { validVersionsShape,restoreVersion } from './versions.js';
 import { onLevel,levelOf,levelsOf,validLevels } from './levels.js';
+import { doorBlockers,validSwing } from './circulation.js';
+import { validFloor,validMaterials } from './materials.js';
+import { validSun } from './sun.js';
+import { validModels } from './models.js';
 export const round = n => Math.round(n * 1000) / 1000;
 export const snap = (n, enabled = true) => enabled ? round(Math.round(n / .1) * .1) : round(n);
 export const clone = data => structuredClone(data);
@@ -41,6 +45,14 @@ export function exampleProject() {
   return { version:1, name:'Mi primera casa', wallHeight:2.6, wallThickness:.14, rooms, items };
 }
 
+// Dos habitaciones con el mismo `join` forman un solo espacio (en L, en T…): el muro que comparten
+// no se levanta.
+const insideRoom=(r,x,z)=>x>r.x-r.w/2&&x<r.x+r.w/2&&z>r.z-r.d/2&&z<r.z+r.d/2;
+function joinedSegment(project,s) {
+  const mid=(s.a+s.b)/2,points=s.axis==='x'?[[mid,s.c-.01],[mid,s.c+.01]]:[[s.c-.01,mid],[s.c+.01,mid]];
+  const [p,q]=points.map(([x,z])=>project.rooms.find(r=>r.join&&insideRoom(r,x,z)));
+  return !!p&&!!q&&p!==q&&p.join===q.join&&levelOf(p)===levelOf(q);
+}
 // Dividir en todos los extremos colineales permite compartir una pared entre habitaciones.
 export function wallsFor(project) {
   const raw=[];
@@ -54,6 +66,7 @@ export function wallsFor(project) {
     for(let i=1;i<cuts.length;i++) {
       if(cuts[i]-cuts[i-1]<.001) continue;
       const segment={axis:s.axis,c:s.c,a:cuts[i-1],b:cuts[i]};
+      if(joinedSegment(project,segment)) continue;
       result.set(`${s.axis}:${s.c}:${segment.a}:${segment.b}`,segment);
     }
   }
@@ -119,14 +132,17 @@ export function warningsFor(item, project) {
     if(!wallsFor(project).some(w=>openingOnWall(item,w))) warnings.push('Esta abertura no está insertada en una pared. Acércala a una pared más ancha.');
     if((item.sill||0)+item.h>project.wallHeight) warnings.push('La abertura supera la altura de la pared.');
     if(project.items.some(o=>o.id!==item.id&&isOpening(o)&&overlaps(item,o))) warnings.push('Esta abertura se superpone con otra.');
+    const blockers=doorBlockers(item,project);
+    if(blockers.length) warnings.push(`Al abrirse choca con ${blockers.map(o=>o.name).join(', ')}. Cambia el sentido de apertura o mueve el mueble.`);
     return warnings;
   }
   const warnings=[];
-  const inside=corners(item).every(([x,z])=>project.rooms.some(r=>x>=r.x-r.w/2-.01&&x<=r.x+r.w/2+.01&&z>=r.z-r.d/2-.01&&z<=r.z+r.d/2+.01));
-  if(!inside) warnings.push('Parte del objeto queda fuera de las habitaciones.');
   const kind=byId(item.asset).kind;
-  if(kind!=='rug') {
-    const collision=project.items.find(o=>o.id!==item.id&&!isOpening(o)&&byId(o.asset).kind!=='rug'&&item.elevation<o.elevation+o.h-.02&&item.elevation+item.h>o.elevation+.02&&overlaps(item,o));
+  // Un muro libre puede ir fuera de las habitaciones (por ejemplo, un muro en diagonal o un cerco).
+  const inside=['partition','fence','pool','grass','tree'].includes(kind)||corners(item).every(([x,z])=>project.rooms.some(r=>x>=r.x-r.w/2-.01&&x<=r.x+r.w/2+.01&&z>=r.z-r.d/2-.01&&z<=r.z+r.d/2+.01));
+  if(!inside) warnings.push('Parte del objeto queda fuera de las habitaciones.');
+  if(!flatKinds.includes(kind)) {
+    const collision=project.items.find(o=>o.id!==item.id&&!isOpening(o)&&!flatKinds.includes(byId(o.asset).kind)&&item.elevation<o.elevation+o.h-.02&&item.elevation+item.h>o.elevation+.02&&overlaps(item,o));
     if(collision) warnings.push(`Se superpone con ${collision.name}.`);
   }
   return warnings;
@@ -147,8 +163,15 @@ export function validateProject(input) {
     if(!isRoom&&o.tv!==undefined&&(!isTv(o)||!validTv(o.tv)))throw new Error('Configuración de televisor inválida.');
     if(!isRoom&&o.cover!==undefined&&(!isCover(o)||!validCover(o.cover)))throw new Error('Configuración de cortina inválida.');
     if(!isRoom&&(!validPrice(o.price)||!validLink(o.link)))throw new Error('Datos de compra inválidos.');
+    if(isRoom&&(!validFloor(o.floor)||(o.join!==undefined&&(typeof o.join!=='string'||!/^[\w-]{1,60}$/.test(o.join)))))throw new Error('Habitación inválida.');
+    if(!isRoom&&(!validSwing(o.swing)||(o.swing!==undefined&&byId(o.asset).kind!=='door')))throw new Error('Sentido de puerta inválido.');
+    if(!isRoom&&(o.asset==='custom')!==(o.model!==undefined))throw new Error('Modelo importado inválido.');
     if(!isRoom&&o.vacuum!==undefined&&(!isVacuum(o)||!validVacuum(o.vacuum)))throw new Error('Configuración de aspiradora inválida.');
   }
+  if(!validMaterials(input.materials)) throw new Error('Datos de materiales inválidos.');
+  if(!validSun(input.sun)) throw new Error('Datos del sol inválidos.');
+  if(!validModels(input.models)) throw new Error('Modelos 3D inválidos.');
+  if(input.items.some(o=>o.model!==undefined&&!(input.models||[]).some(m=>m.id===o.model))) throw new Error('Un objeto usa un modelo 3D que no está en el proyecto.');
   if(!validScenes(input.scenes)) throw new Error('Escenas inválidas.');
   if(input.plan!==undefined&&!validPlan(input.plan)) throw new Error('Plano de referencia inválido.');
   if(!validLevels(input.levels)) throw new Error('Pisos inválidos.');

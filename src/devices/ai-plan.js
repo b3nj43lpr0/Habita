@@ -2,7 +2,7 @@
 // agregar, mover, cambiar o quitar. Cada orden se aplica sobre el proyecto que recibe y devuelve
 // un resumen; quien llama la prueba antes en una copia y la valida como proyecto completo.
 // Idea de house-control (MIT): «el asistente puede reconstruir habitaciones en 3D desde fotos».
-import { catalog, byId, makeItem, isOpening } from '../model/catalog.js';
+import { listed, byId, makeItem, isOpening } from '../model/catalog.js';
 import { round, overlaps, alignOpening } from '../model/model.js';
 import { inRoom, levelOf, levelsOf, baseLevel } from '../model/levels.js';
 
@@ -29,7 +29,7 @@ export function planSnapshot(project) {
     levels: levelsOf(project).map(l => ({ id: l.id, name: l.name })),
     rooms: project.rooms.map(r => ({ id: r.id, name: r.name, x: r.x, z: r.z, w: r.w, d: r.d, level: levelOf(r) })),
     items: project.items.map(i => ({ id: i.id, name: i.name, asset: i.asset, x: i.x, z: i.z, w: i.w, d: i.d, h: i.h, rotation: i.rotation, level: levelOf(i), room: project.rooms.find(r => inRoom(i, r))?.name || null })),
-    catalog: catalog.map(a => ({ asset: a.id, name: a.name, category: a.category, w: a.w, d: a.d, h: a.h }))
+    catalog: listed.map(a => ({ asset: a.id, name: a.name, category: a.category, w: a.w, d: a.d, h: a.h }))
   };
 }
 
@@ -65,7 +65,7 @@ export const planTools = {
   },
   add_item(project, args) {
     const asset = byId(args.asset);
-    if (!asset) throw new Error(`No existe el modelo «${args.asset}». Usa get_plan: la lista «catalog» trae los disponibles.`);
+    if (!asset || asset.kind === 'custom') throw new Error(`No existe el modelo «${args.asset}». Usa get_plan: la lista «catalog» trae los disponibles.`);
     const room = args.room !== undefined ? project.rooms.find(r => r.id === args.room || r.name.toLowerCase() === String(args.room).toLowerCase()) : null;
     if (args.room !== undefined && !room) throw new Error(`No existe la habitación «${args.room}».`);
     const x = args.x !== undefined ? num(args.x, 'x', -100, 100) : room?.x, z = args.z !== undefined ? num(args.z, 'z', -100, 100) : room?.z;
