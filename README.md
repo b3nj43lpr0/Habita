@@ -13,7 +13,7 @@ No necesitas saber de computación ni crear una cuenta. Son tres pasos:
 1. **Descarga el instalador.** Entra a la página de
    [descargas (Releases)](https://github.com/b3nj43lpr0/Habita/releases/latest) y, en la
    sección **Assets**, haz clic en el archivo que empieza con **Habita-Studio-Setup** y termina
-   en `.exe` (por ejemplo `Habita-Studio-Setup-0.9.1.exe`). Se guardará en tu carpeta
+   en `.exe` (por ejemplo `Habita-Studio-Setup-0.10.0.exe`). Se guardará en tu carpeta
    **Descargas**.
 2. **Ábrelo con doble clic.** Lo encuentras en **Descargas** o en el aviso de descarga del
    navegador. No hay que elegir opciones ni pedir permisos de administrador.
@@ -42,8 +42,10 @@ tener la versión original.
 
 ### Actualizar o desinstalar
 
-- **Actualizar**: descarga el instalador nuevo desde la misma página y ábrelo con doble clic;
-  reemplaza la versión anterior. Tus proyectos `.habita` y el autoguardado se mantienen.
+- **Actualizar**: desde la versión 0.10.0, Habita se actualiza sola. Cuando hay una versión nueva,
+  en la barra de abajo aparece **Actualizar a …**: haz clic y Habita se cierra, se instala y se abre
+  de nuevo. Tus proyectos `.habita` y el autoguardado se mantienen. (La versión portable solo
+  avisa: descarga el archivo nuevo desde la página de descargas.)
 - **Desinstalar**: en Windows abre **Configuración → Aplicaciones**, busca *Habita Studio* y
   elige **Desinstalar**.
 
@@ -62,6 +64,10 @@ de «Windows protegió su PC» se pasa igual que arriba. Para quitarla basta con
   materiales y colores.
 - Medir: cotas automáticas en el plano 2D, distancia libre de cada mueble a los muros y una
   huincha entre dos puntos.
+- Espacios en L o en T uniendo habitaciones vecinas, y muros libres en cualquier ángulo.
+- Ver por dónde abre cada puerta y revisar la circulación: pasos angostos y puertas que chocan.
+- Calcular el piso, la pintura y el guardapolvo de cada espacio, con ocho terminaciones de piso.
+- Importar muebles en 3D descargados de internet (archivos `.glb`).
 - Anotar el plano con notas de colores, armar la lista de compras con precios y guardar
   versiones de la distribución para compararlas.
 - Importar el plano de tu casa como imagen y calibrarlo con una medida conocida.
@@ -69,7 +75,9 @@ de «Windows protegió su PC» se pasa igual que arriba. Para quitarla basta con
 **Ver**
 - Plano 2D, maqueta 3D y recorrido en primera persona a escala real.
 - Ambientes de día, acogedor, cine y noche; paredes que se bajan según desde dónde miras.
-- Exportar una imagen o un video del recorrido.
+- Exportar una imagen, un video del recorrido o un **PDF** con el plano, las medidas, los
+  materiales y la lista de compras.
+- Sol real según tu ciudad, el mes y la hora.
 
 **Controlar la casa real**
 - Vincular cada objeto de la maqueta con su equipo de **Home Assistant** o con luces
@@ -168,7 +176,9 @@ En Linux sin GPU ni llavero, las pruebas de Electron funcionan con
 
 Cada pull request se prueba y se empaqueta en Windows con GitHub Actions
 (`.github/workflows/windows.yml`). Para publicar una versión, sube `"version"` en `package.json`
-y crea la etiqueta, por ejemplo `v0.9.1`: Actions genera el Release con los dos ejecutables.
+y crea la etiqueta, por ejemplo `v0.10.0`: Actions genera el Release con los dos ejecutables,
+`latest.yml` y el `.blockmap`, que la app instalada usa para actualizarse sola
+(`desktop/updater.cjs`, con `electron-updater`).
 
 El ejecutable se empaqueta con los fuses de Electron endurecidos: sin `ELECTRON_RUN_AS_NODE`,
 sin `NODE_OPTIONS` ni `--inspect`, cookies cifradas y solo `app.asar` con integridad validada.

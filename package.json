@@ -1,6 +1,6 @@
 {
   "name": "habita-studio",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Editor local de casas en 2D y 3D",
   "private": true,
   "type": "module",

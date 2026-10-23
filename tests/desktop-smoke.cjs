@@ -15,7 +15,7 @@ app.whenReady().then(async()=>{
     await win.loadFile(path.join(__dirname,'../dist/index.html'));
     const result=await win.webContents.executeJavaScript(`({title:document.title,canvas:!!document.querySelector('#scene canvas'),assets:document.querySelectorAll('[data-asset]').length,bridge:typeof window.habita?.saveProject==='function'&&typeof window.habita?.openProject==='function',stats:document.querySelector('#project-stats')?.textContent})`);
     console.log('Bundle cargado; comprobando edición y luces.');
-    if(!result.canvas||result.assets!==65||!result.bridge||errors.length)throw new Error(JSON.stringify({result,errors}));
+    if(!result.canvas||result.assets!==83||!result.bridge||errors.length)throw new Error(JSON.stringify({result,errors}));
     const interactions=await win.webContents.executeJavaScript(`(async()=>{
       const $=s=>document.querySelector(s),check=(value,message)=>{if(!value)throw Error(message);};
       const wait=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));

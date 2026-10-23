@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld('habita', {
   openProject: () => ipcRenderer.invoke('open-project'),
   // Imagen de un plano (PNG o JPG) elegida en el diálogo nativo; vuelve como data URL.
   openImage: () => ipcRenderer.invoke('open-image'),
+  // Modelo 3D .glb elegido en el diálogo nativo: { name, data } con data como data URL.
+  openModel: () => ipcRenderer.invoke('open-model'),
+  // Informe HTML a PDF: pregunta dónde guardarlo y lo abre al terminar.
+  exportPdf: (html, name) => ipcRenderer.invoke('export-pdf', html, name),
   // Enlaces de tiendas: se abren en el navegador del sistema (solo http y https).
   openLink: url => ipcRenderer.invoke('open-link', url),
   // Actualizaciones desde los Releases de GitHub.

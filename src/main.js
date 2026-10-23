@@ -37,6 +37,8 @@ import { applyScene } from './model/scenes.js';
 import { createDeviceTip } from './ui/device-tip.js';
 import { createControlPanel } from './ui/control-panel.js';
 import { createUpdates } from './ui/updates.js';
+import { createTools } from './ui/tools-ui.js';
+import { sunFor } from './model/sun.js';
 
 const saved = loadSavedProject(exampleProject());
 const state = {
@@ -152,6 +154,7 @@ function changed() {
   ctx.scene.setGroup(state.selection);
   ctx.devices.applyLive();
   ctx.scene.rebuild(state.project, state.selected);
+  ctx.scene.setSun(sunFor(state.project));
   inspector.render();
   renderRooms();
   renderStats();
@@ -372,11 +375,15 @@ selectionActions = createSelectionActions(ctx);
 dimensions = createDimensions(ctx);
 notesUI = createNotesUI(ctx);
 ctx.phone = createPhone();
+ctx.tools = createTools(ctx);
+ctx.dimensions = dimensions;
+$('#export-pdf-top').onclick = () => ctx.tools.exportPdf();
 const video = createVideo(ctx);
 $('#record-video').onclick = () => video.open();
 const showDeviceTip = createDeviceTip($('.viewport'), ctx);
 library = createLibrary(ctx);
 inspector = createInspector(ctx);
+ctx.inspector = inspector;
 ctx.controlPanel = createControlPanel(ctx);
 ctx.devices = createDevices(ctx, {
   // Un estado real llegó desde la casa: se refleja sin crear un paso de historial.
@@ -781,7 +788,7 @@ $('#open').onclick = async () => {
 $('#file-input').onchange = async event => {
   const file = event.target.files[0];
   if (file) {
-    if (file.size > 10_000_000) toast('El archivo supera 10 MB.');
+    if (file.size > 25_000_000) toast('El archivo supera 25 MB.');
     else loadProject(await file.text());
   }
   event.target.value = '';
@@ -878,6 +885,7 @@ document.addEventListener('keydown', event => {
 });
 
 ctx.scene.rebuild(state.project);
+ctx.scene.setSun(sunFor(state.project));
 lastPowered = poweredDevices();
 scrollHints($('#room-chips'));
 updateInsets();

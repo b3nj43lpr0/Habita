@@ -3,6 +3,34 @@
 Lo nuevo de cada versión de Habita Studio, de la más reciente a la más antigua. Lo que
 viene está en [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## 0.10.0 · Se actualiza sola, PDF, circulación, materiales y sol real
+
+- **Actualización automática**: al abrir Habita se revisa si hay una versión nueva. El instalador la
+  descarga solo y en la barra de abajo aparece **Actualizar a …**: un clic cierra Habita, instala y
+  la vuelve a abrir. La versión portable avisa y abre la página de descarga.
+- **PDF del plano** (botón de documento arriba de la maqueta o «PDF del plano» en Tu proyecto): portada
+  con la vista 3D, plano de cada piso con medidas, puertas y muebles, tabla de espacios, revisión de
+  circulación, materiales y lista de compras.
+- **Espacios en L o en T**: en el panel de una habitación, **Unir con** un espacio vecino quita el muro
+  entre ambos (y la puerta que hubiera en él). **Separar** lo vuelve a poner.
+- **Muros en diagonal**: nueva categoría *Estructura* con **Muro libre**, **Muro bajo** y **Pilar**;
+  se giran a cualquier ángulo con *Rotación* y el imán de paredes no los mueve.
+- **Puertas**: el plano 2D muestra por dónde abre cada una; **Cambiar sentido de apertura** en su panel.
+  Si al abrirse choca con un mueble, aparece el aviso.
+- **Revisión de circulación** (Tu proyecto → Circulación): pasos de menos de 60 cm entre muebles grandes
+  o contra la pared, y puertas que chocan. Se marcan en rojo en el plano.
+- **Calculadora de materiales**: piso a comprar (con margen por cortes), litros de pintura (sin puertas
+  ni ventanas) y metros de guardapolvo por espacio. Con precios, se suman a la lista de compras.
+- **Terminaciones de piso** (pestaña Materiales o panel de la habitación): madera, flotante, cerámica,
+  porcelanato, alfombra, cemento pulido, deck y pasto, con su textura en la maqueta.
+- **Sol real** (Tu proyecto → Sol real): ciudad, mes, hora y hacia dónde mira la casa; la luz y las
+  sombras entran por donde corresponde. **Ver el día completo** recorre del amanecer al atardecer.
+- **18 objetos nuevos**: sofá esquinero, camarote, piano, vitrina, zapatero, secadora, lavadero,
+  cuadro, repisa, perchero, lámpara colgante (controlable como las otras lámparas), árbol, pasto,
+  piscina, cerco y la estructura.
+- **Modelos 3D descargados**: «Importar modelo 3D (.glb)» en la biblioteca agrega muebles bajados de
+  internet (hasta 3 MB cada uno). Quedan guardados dentro del archivo `.habita`.
+
 ## 0.9.1 · Muebles que se ajustan a las paredes
 
 - **Imán de paredes**: al arrastrar un mueble a menos de 25 cm de un muro, queda pegado a la

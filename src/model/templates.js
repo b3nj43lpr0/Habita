@@ -33,7 +33,7 @@ function apartment() {
     add('bed', -3.25, -3.45, 0, { w: 1.5 }); add('nightstand', -4.35, -4.2); add('nightstand', -2.15, -4.2); add('wardrobe', -4.65, -1.7, 90, { w: 1.8 });
     add('bed', 2.95, -3.5, 0, { w: .9, d: 1.9 }); add('desk', 1.3, -1, 180, { w: 1.2 }); add('office-chair', 1.3, -1.75);
     add('toilet', -1.1, -4.05); add('shower', -.05, -4.05, 0, { w: .8, d: .8 }); add('vanity', -.95, -2.35, 180, { w: .7 });
-    add('door', -.5, -.5); add('door', -1.5, -1.25, 90); add('door', .5, -1.25, 90); add('door', -.5, -2); add('door', -4.2, 3.5);
+    add('door', -.5, -.5); add('door', -1.5, -1.25, 90); add('door', .5, -1.25, 90, { swing: 2 }); add('door', -.5, -2); add('door', -4.2, 3.5);
     add('window', -2, 3.5); add('window', 4, 1.5, 90); add('window', -3.25, -4.5); add('window', 2.25, -4.5);
   });
 }

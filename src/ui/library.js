@@ -1,4 +1,5 @@
-import { catalog, categories, makeItem, isOpening } from '../model/catalog.js';
+import { listed, categories, makeItem, isOpening } from '../model/catalog.js';
+import { floorFinishes } from '../model/materials.js';
 import { round, snap, warningsFor, alignOpening } from '../model/model.js';
 import { thumbnail } from '../scene3d/furniture.js';
 import { isClimate } from '../devices/climate.js';
@@ -7,7 +8,7 @@ import { icon } from './icons.js';
 import { mountPlanTools } from './floor-plan.js';
 import { baseLevel, levelsOf, onLevel } from '../model/levels.js';
 
-const wallMounted = ['tv-wall', 'mirror', 'wall-cabinet', 'hood', 'towel-rail', 'curtain', 'blind'];
+const wallMounted = ['tv-wall', 'mirror', 'wall-cabinet', 'hood', 'towel-rail', 'curtain', 'blind', 'frame', 'wall-shelf'];
 const swatches = [
   ['Roble natural', '#c5ad8e'], ['Nogal', '#94795b'], ['Madera clara', '#d5c8ab'], ['Cemento', '#aeb3b0'],
   ['Piedra gris', '#929c9e'], ['Salvia', '#a7b9b3'], ['Arena', '#c9bfa7'], ['Arcilla', '#bd9a85']
@@ -27,9 +28,12 @@ export function createLibrary(ctx) {
   function renderObjects(container) {
     container.innerHTML = `
      <div class="search-field">${icon('search', 16)}<input id="search" placeholder="Busca un objeto…" aria-label="Buscar objetos" value="${esc(state.query)}"></div>
-     <div class="categories">${categories.map(c => `<button data-category="${esc(c)}" class="${c === state.category ? 'active' : ''}">${esc(c)}</button>`).join('')}</div>
+     <div class="categories">${[...categories, ...(state.project.models?.length ? ['Importados'] : [])].map(c => `<button data-category="${esc(c)}" class="${c === state.category ? 'active' : ''}">${esc(c)}</button>`).join('')}</div>
      <div class="catalog-caption"><span id="catalog-total"></span><span>Medidas editables</span></div>
-     <div id="asset-grid" class="asset-grid"></div>`;
+     <div id="asset-grid" class="asset-grid"></div>
+     <button id="import-model" class="secondary full import-model">${icon('cube', 15)} Importar modelo 3D (.glb)</button>
+     <small class="library-note">Descarga muebles en formato GLB (por ejemplo de Sketchfab o de la tienda del fabricante) y agrégalos a tu casa. Hasta 3 MB cada uno.</small>`;
+    $('#import-model').onclick = () => ctx.tools.importModel();
     $('#search').addEventListener('input', event => { state.query = event.target.value; renderAssets(); });
     container.querySelectorAll('[data-category]').forEach(button => button.onclick = () => {
       state.category = button.dataset.category;
@@ -44,18 +48,26 @@ export function createLibrary(ctx) {
 
   function renderAssets() {
     const query = plain(state.query.trim());
-    const filtered = catalog.filter(a =>
+    const filtered = listed.filter(a =>
       (state.category === 'Todos' || state.category === a.category) && plain(`${a.name} ${a.category}`).includes(query));
-    $('#catalog-total').textContent = `${filtered.length} objetos`;
+    const models = ['Todos', 'Importados'].includes(state.category) ? (state.project.models || []).filter(m => plain(`${m.name} importados`).includes(query)) : [];
+    $('#catalog-total').textContent = `${filtered.length + models.length} objetos`;
     const grid = $('#asset-grid');
-    grid.innerHTML = filtered.length
-      ? filtered.map(a => `
+    grid.innerHTML = filtered.length || models.length
+      ? models.map(m => `
+         <div class="asset-card imported"><button class="asset-pick" data-model="${esc(m.id)}" aria-label="Añadir ${esc(m.name)}">
+          <span class="asset-preview model-preview">${icon('cube', 34)}<span class="asset-add">+</span></span>
+          <strong>${esc(m.name)}</strong><span class="asset-size">Modelo importado</span></button>
+          <button class="icon-button remove-model" data-remove-model="${esc(m.id)}" aria-label="Quitar ${esc(m.name)} del proyecto" title="Quitar del proyecto">${icon('trash', 13)}</button>
+         </div>`).join('') + filtered.map(a => `
          <button class="asset-card" data-asset="${a.id}" aria-label="Añadir ${esc(a.name)}">
           <span class="asset-preview"><img src="${thumbnail(a)}" alt="" draggable="false"><span class="asset-add">+</span></span>
           <strong>${esc(a.name)}</strong><span class="asset-size">${fmt(a.w)} × ${fmt(a.d)} m</span>
          </button>`).join('')
       : '<p class="empty-state">No encontramos ese objeto. Prueba otra búsqueda.</p>';
     grid.querySelectorAll('[data-asset]').forEach(button => button.onclick = () => addAsset(button.dataset.asset));
+    grid.querySelectorAll('[data-model]').forEach(button => button.onclick = () => ctx.tools.placeModel(button.dataset.model));
+    grid.querySelectorAll('[data-remove-model]').forEach(button => button.onclick = () => { ctx.tools.removeModel(button.dataset.removeModel); render(); });
   }
 
   function renderRooms(container) {
@@ -111,7 +123,18 @@ export function createLibrary(ctx) {
     container.innerHTML = `
      <div class="library-description">Selecciona una habitación para cambiar su suelo, o un objeto para cambiar su color.</div>
      <div class="material-grid">${swatches.map(([name, color]) => `<button data-color="${color}"><span style="background:${color}"></span>${name}</button>`).join('')}</div>
-     <div class="library-note">Los acabados de esta versión son colores y un patrón de madera sencillo. Las texturas fotográficas se añadirán al catálogo.</div>`;
+     <div class="section-label">Terminación del piso</div>
+     <div class="finish-grid">${floorFinishes.map(([key, name]) => `<button data-finish="${key}"><span class="finish-swatch finish-${key}"></span>${name}</button>`).join('')}</div>
+     <button id="library-materials" class="secondary full">${icon('layers', 15)} Calcular materiales</button>
+     <div class="library-note">Elige una habitación y su terminación: cambia la textura en la maqueta y el cálculo de materiales.</div>`;
+    $('#library-materials').onclick = () => ctx.tools.showMaterials();
+    container.querySelectorAll('[data-finish]').forEach(b => b.onclick = () => {
+      const room = state.project.rooms.find(r => r.id === state.selected);
+      if (!room) { toast('Selecciona primero una habitación.'); return; }
+      actions.checkpoint();
+      for (const r of state.project.rooms.filter(r => r === room || (room.join && r.join === room.join))) { if (b.dataset.finish === 'wood') delete r.floor; else r.floor = b.dataset.finish; }
+      actions.changed();
+    });
     container.querySelectorAll('[data-color]').forEach(b => b.onclick = () => {
       const { project, selected } = state;
       const target = project.items.find(o => o.id === selected) || project.rooms.find(r => r.id === selected);

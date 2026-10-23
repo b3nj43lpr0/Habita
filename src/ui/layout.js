@@ -1,4 +1,4 @@
-import { catalog } from '../model/catalog.js';
+import { listed } from '../model/catalog.js';
 import { esc } from './dom.js';
 import { icon } from './icons.js';
 
@@ -21,7 +21,7 @@ export function shell(project, version) {
  </header>
  <div class="workspace">
   <aside class="library">
-   <div class="library-title"><h1>Tu biblioteca</h1><span class="count">${catalog.length}</span></div>
+   <div class="library-title"><h1>Tu biblioteca</h1><span class="count">${listed.length}</span></div>
    <nav class="library-tabs" aria-label="Biblioteca">
     <button class="active" data-tab="objects">Objetos</button><button data-tab="rooms">Espacios</button><button data-tab="materials">Materiales</button>
    </nav>
@@ -43,6 +43,7 @@ export function shell(project, version) {
      <span class="tool-divider"></span>
      <button id="snapshot" class="icon-button" title="Exportar imagen PNG" aria-label="Exportar imagen">${icon('image')}</button>
      <button id="record-video" class="icon-button" title="Grabar video del recorrido" aria-label="Grabar video del recorrido">${icon('video')}</button>
+     <button id="export-pdf-top" class="icon-button" title="Exportar plano en PDF" aria-label="Exportar plano en PDF">${icon('pdf')}</button>
     </div>
    </div>
    <div class="scene-heading"><span class="overline">Un lugar para imaginar</span><h2>Tu casa, a tu manera.</h2><p>Explora. Mueve. Hazla tuya.</p></div>
@@ -100,7 +101,9 @@ export const helpDialog = () => `
   <li><strong>Conecta</strong> Home Assistant con el botón del enchufe para controlar luces, aires y televisores reales.</li>
   <li><strong>Agrega pisos</strong> con el botón + junto a los espacios; la escalera conecta los pisos en el recorrido.</li>
   <li><strong>Importa</strong> el plano de tu casa como imagen desde <strong>Espacios</strong> y calíbralo con una medida conocida.</li>
+  <li><strong>Une espacios</strong> vecinos desde el panel de una habitación para formar una L, y usa <strong>Muro libre</strong> (Estructura) para muros en diagonal.</li>
+  <li><strong>Exporta un PDF</strong> con el plano, las medidas, la revisión de circulación, los materiales y la lista de compras.</li>
  </ul>
  <div class="shortcut-list"><span>Ctrl + Z · Deshacer</span><span>Ctrl + Y · Rehacer</span><span>Flechas · Mover (Shift: 50 cm)</span><span>R · Girar</span><span>Ctrl + D · Duplicar</span><span>Ctrl + C / V · Copiar y pegar</span><span>Shift + clic · Elegir varios</span><span>M · Medir</span><span>Ctrl + A · Todo el piso</span><span>Supr · Eliminar</span><span>Esc · Cancelar herramienta</span></div>
- <p class="library-note">Medidas de muebles orientativas. Esta versión comprueba límites y superposición de objetos; aún no valida circulación, estructura ni normativa.</p>
+ <p class="library-note">Medidas de muebles orientativas. Esta versión comprueba límites, superposición, pasos angostos y puertas que chocan; no valida estructura ni normativa.</p>
  <button data-close class="primary full">Empezar a diseñar</button>`;

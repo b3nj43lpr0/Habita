@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { furniture,disposeTree } from './furniture.js';
+import { furniture,disposeTree,registerModels,modelLoaded } from './furniture.js';
+import { sunDirection } from '../model/sun.js';
 import { wallsFor,wallPieces } from '../model/model.js';
 import { roomBounds,roomHandles } from '../model/room-edit.js';
 import { createWalker,stairTransition } from './walkthrough.js';
@@ -51,16 +52,36 @@ export function createScene(host, callbacks) {
   // Altura del piso de un objeto o habitación sobre el suelo del primer piso.
   const lift=o=>levelElevation(project,levelOf(o)),baseY=item=>lift(item)+(item.elevation||0);
   scene.add(house);
+  modelLoaded(()=>{dirty=true;setSelection(selected);});
+  // Sol real: con `on`, la luz del sol sale de la posición que corresponde a la ciudad, el mes y la
+  // hora; bajo el horizonte se apaga. Las intensidades base vienen del ambiente elegido.
+  let sunSetting=null,base={sun:1.5,hemi:.95};
+  function applySun(){
+    if(!sunSetting?.on){sun.position.set(-5,10,5);sun.intensity=base.sun;hemi.intensity=base.hemi;dirty=true;return;}
+    const d=sunDirection(sunSetting),f=d.y>0?Math.min(1,.25+d.y*1.6):0;
+    sun.position.set(d.x*22,Math.max(.5,d.y*22),d.z*22);sun.intensity=base.sun*f*1.7;hemi.intensity=base.hemi*(.4+.3*Math.min(1,Math.max(0,d.y*2.5)));
+    sun.color.copy(new THREE.Color('#ff9f5a').lerp(new THREE.Color('#fff2de'),Math.min(1,Math.max(0,d.y*2.2))));dirty=true;
+  }
   const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
   const floorMat=new Map();
-  function floorTexture(color) {
-    if(floorMat.has(color))return floorMat.get(color);
+  // Textura del piso según su terminación (madera, cerámica, alfombra…), teñida con su color.
+  function floorTexture(color,finish='wood') {
+    const key=`${color}|${finish}`;if(floorMat.has(key))return floorMat.get(key);
     const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;const ctx=canvas.getContext('2d');
     ctx.fillStyle=color;ctx.fillRect(0,0,256,256);
-    ctx.strokeStyle='#57462e12';ctx.lineWidth=.65;
-    for(let y=0;y<256;y+=32){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(256,y);ctx.stroke();for(let x=(y%64?60:0);x<256;x+=128){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+32);ctx.stroke();}}
+    const noise=(alpha,size=2,seed=1)=>{for(let y=0;y<256;y+=size)for(let x=0;x<256;x+=size){const t=Math.abs(Math.sin(x*12.9898+y*78.233+seed)*43758.5453)%1;ctx.fillStyle=t>.5?`rgba(255,255,255,${alpha*(t-.5)})`:`rgba(40,30,20,${alpha*(.5-t)})`;ctx.fillRect(x,y,size,size);}};
+    const grid=(step,width,stroke)=>{ctx.strokeStyle=stroke;ctx.lineWidth=width;for(let v=0;v<=256;v+=step){ctx.beginPath();ctx.moveTo(v,0);ctx.lineTo(v,256);ctx.stroke();ctx.beginPath();ctx.moveTo(0,v);ctx.lineTo(256,v);ctx.stroke();}};
+    const planks=(height,stroke,shift)=>{ctx.strokeStyle=stroke;ctx.lineWidth=.8;for(let y=0;y<256;y+=height){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(256,y);ctx.stroke();for(let x=(y/height)%2?shift:0;x<256;x+=128){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+height);ctx.stroke();}}};
+    if(finish==='tile'){noise(.08,4);grid(64,2,'#ffffff55');}
+    else if(finish==='porcelain'){noise(.05,8,3);grid(128,1.2,'#ffffff40');}
+    else if(finish==='carpet'){noise(.18,2,7);}
+    else if(finish==='concrete'){noise(.1,6,5);noise(.06,2,9);}
+    else if(finish==='grass'){noise(.25,2,11);}
+    else if(finish==='deck'){noise(.06,2,13);ctx.fillStyle='#00000030';for(let y=0;y<256;y+=32)ctx.fillRect(0,y,256,3);}
+    else if(finish==='laminate'){noise(.04,2,17);planks(42,'#57462e22',90);}
+    else planks(32,'#57462e12',60);
     const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(2,2);
-    floorMat.set(color,texture);return texture;
+    floorMat.set(key,texture);return texture;
   }
   function addBox(w,h,d,x,y,z,mat,roomId=null) {
     const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,2,Math.min(w,h,d,.1)*.22),mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;if(roomId)m.userData.roomId=roomId;house.add(m);return m;
@@ -82,7 +103,7 @@ export function createScene(host, callbacks) {
     setHover(null);
     const reusable=new Map(house.children.filter(o=>o.userData.itemId).map(o=>[o.userData.itemId,o]));
     for(const model of reusable.values())house.remove(model);
-    project=data;selected=id;syncPlan(data.plan);const flowsBefore=new Map([...airflows].map(([key,flow])=>[key,flow.snapshot()]));scene.remove(house);disposeTree(house);house=new THREE.Group();scene.add(house);airflows.clear();
+    project=data;selected=id;syncPlan(data.plan);registerModels(data.models);const flowsBefore=new Map([...airflows].map(([key,flow])=>[key,flow.snapshot()]));scene.remove(house);disposeTree(house);house=new THREE.Group();scene.add(house);airflows.clear();
     dirty=true;
     if(mode==='walk')walker.setProject(onLevel(data,activeLevel),levelElevation(data,activeLevel));
     // En 3D se ven el piso activo y los de abajo (con paredes completas); en 2D y recorrido, solo el activo.
@@ -94,7 +115,7 @@ export function createScene(host, callbacks) {
     for(const level of levels.filter(l=>shown.has(l.id))) {
       const view=onLevel(data,level.id),y=levelElevation(data,level.id),below=level.id!==levels[active].id;
       for(const r of view.rooms) {
-        const mat=heat?new THREE.MeshStandardMaterial({color:heatColor(heat[r.id]),roughness:.9}):new THREE.MeshStandardMaterial({map:floorTexture(r.color),color:night?'#7d8091':'#ffffff',roughness:.9});
+        const mat=heat?new THREE.MeshStandardMaterial({color:heatColor(heat[r.id]),roughness:.9}):new THREE.MeshStandardMaterial({map:floorTexture(r.color,r.floor),color:night?'#7d8091':'#ffffff',roughness:['porcelain','tile'].includes(r.floor)?.45:.9});
         addBox(r.w,.16,r.d,r.x,y-.08,r.z,mat,r.id);
         const base=new THREE.MeshStandardMaterial({color:'#d2bd9d',roughness:.7});addBox(r.w+.08,.1,r.d+.08,r.x,y-.21,r.z,base);
         if(mode==='walk')addBox(r.w,.08,r.d,r.x,y+data.wallHeight+.04,r.z,new THREE.MeshStandardMaterial({color:'#e3ded0',roughness:1}));
@@ -110,7 +131,7 @@ export function createScene(host, callbacks) {
     }
     for(const item of data.items){
       if(!shown.has(levelOf(item)))continue;
-      const signature=JSON.stringify([item.asset,item.w,item.h,item.d,item.color]);
+      const signature=JSON.stringify([item.asset,item.w,item.h,item.d,item.color,item.model]);
       let model=reusable.get(item.id);reusable.delete(item.id);
       if(model&&model.userData.signature!==signature){disposeTree(model);model=null;}
       if(!model){model=furniture(item);model.userData.signature=signature;}
@@ -391,8 +412,9 @@ export function createScene(host, callbacks) {
     freeWalk(){walker.free();},
     wallMode(value){wallMode=value;rebuild(project);},
     drawing(value){controls.enabled=!value;renderer.domElement.style.cursor=value?'crosshair':'';},
-    ambience(preset){ambiencePreset=preset;isNight=['night','cinema'].includes(preset);hemi.intensity=preset==='night'?.28:isNight?.45:preset==='cozy'?.95:1.25;sun.intensity=preset==='night'?.35:isNight?.6:preset==='cozy'?1.5:2;fill.intensity=preset==='cinema'?.9:.55;fill.color.set(preset==='cinema'?'#879bff':'#bfcee8');scene.background=viewBackground(preset);look.night(isNight);rebuild(project);},
-    visualTuning(brightness,warmth){renderer.toneMappingExposure=.35+brightness*.008;sun.color.copy(new THREE.Color('#b7d7ff').lerp(new THREE.Color('#ffd09b'),warmth/100));scene.environmentIntensity=(ambiencePreset==='night'?.16:.3)*(.6+brightness/100*.6);dirty=true;},
+    ambience(preset){ambiencePreset=preset;isNight=['night','cinema'].includes(preset);base={hemi:preset==='night'?.28:isNight?.45:preset==='cozy'?.95:1.25,sun:preset==='night'?.35:isNight?.6:preset==='cozy'?1.5:2};applySun();fill.intensity=preset==='cinema'?.9:.55;fill.color.set(preset==='cinema'?'#879bff':'#bfcee8');scene.background=viewBackground(preset);look.night(isNight);rebuild(project);},
+    visualTuning(brightness,warmth){renderer.toneMappingExposure=.35+brightness*.008;sun.color.copy(new THREE.Color('#b7d7ff').lerp(new THREE.Color('#ffd09b'),warmth/100));scene.environmentIntensity=(ambiencePreset==='night'?.16:.3)*(.6+brightness/100*.6);if(sunSetting?.on)applySun();dirty=true;},
+    setSun(value){sunSetting=value;applySun();},
     zoom(factor){camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.3,6);camera.updateProjectionMatrix();dirty=true;},
     // Encuadra la casa del piso activo en el espacio libre: proyecta su caja (con la altura de los
     // muros) en la cámara y elige el zoom con el que cabe con un margen. Con keepAngle conserva el giro

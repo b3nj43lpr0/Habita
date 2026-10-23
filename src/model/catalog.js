@@ -65,10 +65,35 @@ export const catalog = [
   asset('curtain', 'Cortina', 'Aberturas', 'curtain', 1.6, .12, 2.3, '#d9cbb3', [[1.2,.12,2.2],[1.6,.12,2.3],[2.4,.12,2.4]], .1),
   asset('blind', 'Persiana', 'Aberturas', 'blind', 1.2, .06, 1.3, '#e7e2d6', [[.8,.06,1],[1.2,.06,1.3],[1.8,.06,1.5]], .85),
   asset('stairs', 'Escalera recta', 'Estructura', 'stairs', .9, 3, 2.8, '#c4a27c', [[.8,2.6,2.6],[.9,3,2.8],[1,3.4,3]]),
+  // 0.10.0: estructura libre (muros en cualquier ángulo), más muebles y exterior.
+  asset('wall', 'Muro libre', 'Estructura', 'partition', 2, .14, 2.6, '#ece6dc', [[1,.14,2.6],[2,.14,2.6],[3,.14,2.6],[4,.14,2.6]]),
+  asset('half-wall', 'Muro bajo', 'Estructura', 'partition', 1.5, .14, 1.1, '#ece6dc', [[1,.14,1.1],[1.5,.14,1.1],[2.5,.14,1.1]]),
+  asset('column', 'Pilar', 'Estructura', 'partition', .3, .3, 2.6, '#e2dbcf', [[.2,.2,2.6],[.3,.3,2.6],[.4,.4,2.6]]),
+  asset('sectional', 'Sofá esquinero', 'Living', 'sectional', 2.6, 1.7, .82, '#9a9d8c', [[2.2,1.5,.82],[2.6,1.7,.82],[3,2,.85]]),
+  asset('piano', 'Piano', 'Living', 'piano', 1.5, .6, 1.25, '#2b2a2c'),
+  asset('shoe-cabinet', 'Zapatero', 'Living', 'cabinet', .8, .35, 1, '#c1ab8c'),
+  asset('bunk', 'Camarote', 'Dormitorio', 'bunk', 1, 2, 1.6, '#c9c2ae'),
+  asset('vitrine', 'Vitrina', 'Comedor', 'wardrobe', 1, .42, 1.8, '#a9876a'),
+  asset('dryer', 'Secadora', 'Baño', 'washer', .6, .6, .85, '#e6e6e1'),
+  asset('laundry-sink', 'Lavadero', 'Baño', 'sink', .6, .5, .85, '#d8d8d2'),
+  asset('frame', 'Cuadro', 'Decoración', 'frame', .8, .03, .6, '#8f7a62', [[.4,.03,.5],[.8,.03,.6],[1.2,.03,.8]], 1.3),
+  asset('wall-shelf', 'Repisa de muro', 'Decoración', 'wallshelf', 1, .25, .3, '#b48c64', [[.6,.25,.3],[1,.25,.3],[1.5,.25,.3]], 1.4),
+  asset('coat-rack', 'Perchero', 'Decoración', 'coatrack', .45, .45, 1.75, '#8a6f55'),
+  asset('pendant', 'Lámpara colgante', 'Iluminación', 'lamp', .45, .45, .5, '#e7d6b8', [[.3,.3,.4],[.45,.45,.5],[.6,.6,.55]], 1.9),
+  asset('tree', 'Árbol', 'Exterior', 'tree', 2, 2, 3.5, '#5f8455', [[1.4,1.4,2.5],[2,2,3.5],[3,3,5]]),
+  asset('lawn', 'Pasto', 'Exterior', 'grass', 4, 4, .02, '#79a35f', [[2,2,.02],[4,4,.02],[6,6,.02]]),
+  asset('pool', 'Piscina', 'Exterior', 'pool', 4, 2, .05, '#4fa6c8', [[3,1.5,.05],[4,2,.05],[6,3,.05]]),
+  asset('fence', 'Cerco', 'Exterior', 'fence', 2, .06, 1.2, '#9b8466', [[1,.06,1.2],[2,.06,1.2],[3,.06,1.5]]),
+  // Modelo 3D importado (.glb): no aparece en el catálogo; cada uno se agrega desde «Importados».
+  asset('custom', 'Modelo importado', 'Importados', 'custom', 1, 1, 1, '#cfc8bb'),
   asset('door', 'Puerta interior', 'Aberturas', 'door', .8, .14, 2.1, '#b69472', [[.7,.14,2.1],[.8,.14,2.1],[.9,.14,2.1]]),
   asset('window', 'Ventana', 'Aberturas', 'window', 1.4, .14, 1.2, '#c6d8d7', [[.6,.14,.6],[1.2,.14,1],[1.8,.14,1.2],[2.4,.14,1.5]])
 ];
-export const categories = ['Todos', ...new Set(catalog.map(a => a.category))];
+// Lo que se ofrece en la biblioteca (los modelos importados se listan aparte).
+export const listed = catalog.filter(a => a.kind !== 'custom');
+export const categories = ['Todos', ...new Set(listed.map(a => a.category))];
+// Lo que se pisa sin chocar: alfombras, pasto y piscinas.
+export const flatKinds = ['rug', 'grass', 'pool'];
 export const byId = id => catalog.find(a => a.id === id);
 export const isOpening = item => ['door', 'window'].includes(byId(item.asset)?.kind);
 export function makeItem(assetId, x = 0, z = 0) {

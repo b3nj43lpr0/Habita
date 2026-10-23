@@ -1,6 +1,6 @@
 import { byId, isOpening } from '../model/catalog.js';
 import { inRoom } from '../model/levels.js';
-import { clone, round, totalArea, warningsFor, alignOpening, overlaps } from '../model/model.js';
+import { clone, round, totalArea, warningsFor, alignOpening, overlaps, wallsFor, openingOnWall } from '../model/model.js';
 import { isLamp, lightFor, lampsInRoom } from '../devices/lighting.js';
 import { isClimate, climateFor, climateInRoom, modeNames } from '../devices/climate.js';
 import { isTv, tvFor, tvsInRoom } from '../devices/tv.js';
@@ -14,6 +14,20 @@ import { shoppingList, shoppingCsv, money, validLink } from '../model/shopping.j
 import { mountVersions } from './versions-ui.js';
 import { dimByDragging } from './dim-drag.js';
 import { icon } from './icons.js';
+import { floorFinishes } from '../model/materials.js';
+import { swingLabels, isDoor } from '../model/circulation.js';
+import { sameLevel as onSameLevel } from '../model/levels.js';
+
+// Habitaciones del mismo piso que comparten al menos 30 cm de muro con esta (se pueden unir).
+function neighbours(project, room) {
+  const edges = r => ({ x0: r.x - r.w / 2, x1: r.x + r.w / 2, z0: r.z - r.d / 2, z1: r.z + r.d / 2 });
+  const a = edges(room), along = (p0, p1, q0, q1) => Math.min(p1, q1) - Math.max(p0, q0), near = (p, q) => Math.abs(p - q) < .001;
+  return project.rooms.filter(r => {
+    if (r.id === room.id || !onSameLevel(r, room)) return false;
+    const b = edges(r);
+    return ((near(a.x1, b.x0) || near(a.x0, b.x1)) && along(a.z0, a.z1, b.z0, b.z1) >= .3) || ((near(a.z1, b.z0) || near(a.z0, b.z1)) && along(a.x0, a.x1, b.x0, b.x1) >= .3);
+  });
+}
 
 const isLit = item => lightFor(item).on && lightFor(item).brightness > 0;
 const fillFor = slider => `${(Number(slider.value) - Number(slider.min)) / (Number(slider.max) - Number(slider.min)) * 100}%`;
@@ -53,6 +67,11 @@ export function createInspector(ctx) {
       <div><strong>${project.rooms.length}</strong><span>Habitaciones</span></div>
      </div>
      <button id="shopping-list" class="secondary full shopping-button">${icon('cart', 16)} Lista de compras${shoppingList(project).total ? ` · ${money(shoppingList(project).total)}` : ''}</button>
+     <div class="project-tools">
+      <button id="export-pdf" class="secondary" title="Plano con medidas, espacios, materiales y lista de compras">${icon('pdf', 15)} PDF del plano</button>
+      <button id="check-circulation" class="secondary" title="Pasos angostos y puertas que chocan">${icon('ruler', 15)} Circulación</button>
+      <button id="materials-calc" class="secondary full" title="Piso, pintura y guardapolvo según tus medidas">${icon('layers', 15)} Calcular materiales</button>
+     </div>
      <div class="property-section"><h3>Construcción</h3>
       ${numeric('Altura de paredes', 'wallHeight', project.wallHeight, 1, 10)}${numeric('Espesor de paredes', 'wallThickness', project.wallThickness, .05, 1, .01)}
      </div>
@@ -87,6 +106,9 @@ export function createInspector(ctx) {
      <div class="property-section"><h3>Acabado</h3>
       <label class="color-field"><input type="color" data-field="color" value="${target.color}" aria-label="Color del objeto"><span>Color personalizado</span><span>${target.color}</span></label>
      </div>
+     ${room ? roomShape(room) : ''}
+     ${item && isDoor(item) ? `<div class="property-section"><h3>Apertura</h3><button id="door-swing" class="secondary full">${icon('rotate', 15)} Cambiar sentido de apertura</button><small class="swing-note">${esc(swingLabels[item.swing || 0])}. El arco se ve en el plano 2D.</small></div>` : ''}
+     ${asset?.kind === 'partition' || asset?.kind === 'fence' ? '<p class="inspector-hint">Gira el muro a cualquier ángulo con <strong>Rotación</strong> (por ejemplo 45°) para hacer paredes en diagonal. El imán de paredes no lo mueve.</p>' : ''}
      ${item && !isOpening(item) ? `<div class="property-section purchase"><h3>Compra</h3>
       <label class="purchase-field"><span>Precio</span><input id="item-price" type="number" min="0" max="10000000000" step="1000" inputmode="numeric" placeholder="Sin precio" value="${item.price ?? ''}" aria-label="Precio en pesos"><span>CLP</span></label>
       <label class="purchase-field"><span>Tienda</span><input id="item-link" type="url" maxlength="500" placeholder="https://…" value="${esc(item.link || '')}" aria-label="Enlace de la tienda">${item.link ? `<button type="button" id="open-link" class="icon-button" aria-label="Abrir enlace" title="Abrir en el navegador">${icon('link', 14)}</button>` : ''}</label>
@@ -96,6 +118,53 @@ export function createInspector(ctx) {
       ${item ? `<button id="rotate-item" class="secondary" title="Girar 90 grados (R)">${icon('rotate', 16)} Girar</button><button id="duplicate-item" class="secondary">${icon('copy', 16)} Duplicar</button>` : ''}
       <button id="delete-item" class="danger">${icon('trash', 16)} Eliminar ${item ? 'objeto' : 'habitación'}</button>
      </div>`;
+  }
+
+  // Forma de la habitación: terminación del piso y unión con un espacio vecino (sin muro entre ambos).
+  function roomShape(room) {
+    const options = neighbours(state.project, room);
+    const joined = room.join ? state.project.rooms.filter(r => r.id !== room.id && r.join === room.join) : [];
+    return `<div class="property-section room-shape"><h3>Piso y forma</h3>
+      <label class="shape-field"><span>Terminación</span><select id="room-floor">${floorFinishes.map(([key, name]) => `<option value="${key}" ${(room.floor || 'wood') === key ? 'selected' : ''}>${name}</option>`).join('')}</select></label>
+      ${options.length || joined.length ? `<label class="shape-field"><span>Unir con</span><select id="room-join"><option value="">${joined.length ? 'Separar (con muro)' : 'Sin unir'}</option>${options.filter(r => !joined.includes(r)).map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></label>
+      <small class="swing-note">${joined.length ? `Unido con ${joined.map(r => esc(r.name)).join(', ')}: forman un solo espacio sin muro entre ellos.` : 'Une dos habitaciones vecinas para formar un espacio en L o en T, sin muro entre ellas.'}</small>` : ''}
+     </div>`;
+  }
+  function bindRoomShape(room) {
+    const { project } = state;
+    $('#room-floor').onchange = event => {
+      actions.checkpoint();
+      if (event.target.value === 'wood') delete room.floor; else room.floor = event.target.value;
+      for (const r of project.rooms) if (room.join && r.join === room.join) { if (room.floor) r.floor = room.floor; else delete r.floor; }
+      actions.changed();
+    };
+    const join = $('#room-join');
+    if (!join) return;
+    join.onchange = () => {
+      actions.checkpoint();
+      const inWall = p => p.items.filter(o => isOpening(o) && wallsFor({ ...p, rooms: p.rooms.filter(r => sameLevel(r, o)) }).some(w => openingOnWall(o, w))).map(o => o.id);
+      const before = new Set(inWall(project));
+      if (!join.value) {
+        const group = room.join;
+        delete room.join;
+        const rest = project.rooms.filter(r => r.join === group);
+        if (rest.length < 2) rest.forEach(r => delete r.join);
+        toast(`«${room.name}» vuelve a tener muros propios.`);
+      } else {
+        const other = project.rooms.find(r => r.id === join.value);
+        const group = room.join || other.join || crypto.randomUUID(), old = [room.join, other.join].filter(Boolean);
+        for (const r of project.rooms) if (old.includes(r.join)) r.join = group;
+        room.join = other.join = group;
+        other.color = room.color;
+        if (room.floor) other.floor = room.floor; else delete other.floor;
+        // Las puertas y ventanas del muro que desaparece ya no tienen dónde ir.
+        const after = new Set(inWall(project)), gone = project.items.filter(o => before.has(o.id) && !after.has(o.id));
+        project.items = project.items.filter(o => !gone.includes(o));
+        toast(`«${room.name}» y «${other.name}» ahora son un solo espacio${gone.length ? ` (se quitó ${gone.length === 1 ? `«${gone[0].name}» del muro que los separaba` : `${gone.length} aberturas del muro que los separaba`})` : ''}.`, { label: 'Deshacer', run: () => actions.undo() });
+      }
+      project.items.filter(isOpening).forEach(o => alignOpening(o, project));
+      actions.changed();
+    };
   }
 
   // Precio y enlace de compra del mueble: cada campo se guarda al confirmarlo; vacío lo quita.
@@ -132,7 +201,7 @@ export function createInspector(ctx) {
      <div class="shopping-total"><span>Total</span><strong>${money(list.total)}</strong></div>
      <div class="dialog-actions"><button type="button" id="shopping-csv" class="secondary">Exportar CSV</button><button type="button" data-close class="primary">Cerrar</button></div>`, () => {
       $('#shopping-csv').onclick = () => download(shoppingCsv(list), `${state.project.name || 'habita'} - lista de compras.csv`, 'text/csv;charset=utf-8');
-      document.querySelectorAll('.shopping-row [data-pick]').forEach(b => b.onclick = () => { $('#dialog').close(); actions.select(b.dataset.pick); ctx.scene.focusItem(b.dataset.pick); });
+      document.querySelectorAll('.shopping-row [data-pick]').forEach(b => b.onclick = () => { $('#dialog').close(); if (b.dataset.pick.startsWith('material-')) { ctx.tools.showMaterials(); return; } actions.select(b.dataset.pick); ctx.scene.focusItem(b.dataset.pick); });
       document.querySelectorAll('.shopping-row [data-link]').forEach(b => b.onclick = () => openLink(list.rows.find(r => r.id === b.dataset.link).link));
     });
   }
@@ -319,7 +388,21 @@ export function createInspector(ctx) {
     }
     if (!item) mountRoomDevices(container, room);
     if (room) ctx.devices.mountRoomSensors(container.querySelector('.room-edit-tip'), room);
-    if (!item && !room) { mountScenes(container); mountVersions(container, ctx); ctx.automations?.mount(container); $('#shopping-list').onclick = showShopping; }
+    if (!item && !room) {
+      mountScenes(container); ctx.tools.mountSun(container); mountVersions(container, ctx); ctx.automations?.mount(container);
+      $('#shopping-list').onclick = showShopping;
+      $('#export-pdf').onclick = ctx.tools.exportPdf;
+      $('#check-circulation').onclick = ctx.tools.showCirculation;
+      $('#materials-calc').onclick = ctx.tools.showMaterials;
+    }
+    if (room) bindRoomShape(room);
+    if (item && $('#door-swing')) $('#door-swing').onclick = () => {
+      actions.checkpoint();
+      item.swing = ((item.swing || 0) + 1) % 4;
+      if (!item.swing) delete item.swing;
+      actions.changed();
+      if (state.view !== '2d') toast('Mira el arco de la puerta en el plano 2D.');
+    };
     if (item && $('#item-price')) bindPurchase(item);
     bindProperties(container, item, room);
   }
