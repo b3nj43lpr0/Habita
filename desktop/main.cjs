@@ -10,6 +10,7 @@ const { createRemote, remoteTools } = require('./remote.cjs');
 const { createEventLog } = require('./event-log.cjs');
 const { createAiBridge } = require('./ai-bridge.cjs');
 const { createTray } = require('./tray.cjs');
+const { createUpdater } = require('./updater.cjs');
 
 let win;
 const homeAssistant = new HomeAssistantClient();
@@ -66,7 +67,14 @@ app.whenReady().then(() => {
   if (settings.remote) setPhoneAccess(true).catch(() => {});
   restoreHomeAssistant();
   if (settings.aiAccess) setAiAccess(true).catch(() => {});
+  updater.start();
 });
+
+// Versión nueva: se descarga sola y se instala al reiniciar (ver updater.cjs).
+const updater = createUpdater({ notify: (channel, payload) => notify(channel, payload), trayNotify: (title, body) => tray?.notify(title, body), beforeInstall: () => { quitting = true; } });
+ipcMain.handle('update:status', event => { trusted(event); return updater.status(); });
+ipcMain.handle('update:check', event => { trusted(event); return updater.check(); });
+ipcMain.handle('update:install', event => { trusted(event); return updater.install(); });
 
 function trusted(event) {
   if (!win || event.sender !== win.webContents) throw new Error('Origen inválido');

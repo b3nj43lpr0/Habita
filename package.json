@@ -16,6 +16,7 @@
     "pack:win": "npm run build && node node_modules/electron/install.js && electron-builder --win --publish never --config.electronDist=node_modules/electron/dist"
   },
   "dependencies": {
+    "electron-updater": "6.8.9",
     "qrcode": "1.5.4",
     "three": "0.186.1"
   },
@@ -30,6 +31,14 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "b3nj43lpr0",
+        "repo": "Habita",
+        "releaseType": "release"
+      }
+    ],
     "files": [
       "dist/**/*",
       "desktop/**/*",

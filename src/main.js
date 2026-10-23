@@ -5,6 +5,7 @@ import './styles/interaction-details.css';
 import './styles/sliders.css';
 import './styles/devices.css';
 import './styles/control-panel.css';
+import './styles/features.css';
 import * as THREE from 'three';
 import { version } from '../package.json';
 import { isOpening } from './model/catalog.js';
@@ -35,6 +36,7 @@ import { createAutomations } from './ui/automations.js';
 import { applyScene } from './model/scenes.js';
 import { createDeviceTip } from './ui/device-tip.js';
 import { createControlPanel } from './ui/control-panel.js';
+import { createUpdates } from './ui/updates.js';
 
 const saved = loadSavedProject(exampleProject());
 const state = {
@@ -334,6 +336,7 @@ const soundButton = document.createElement('button');
 soundButton.id = 'sound-toggle';
 $('.statusbar>div:last-child').prepend(soundButton);
 ctx.feedback = createFeedback(soundButton);
+createUpdates($('.statusbar>div:last-child'));
 $('#ambience-dock').addEventListener('click', event => { if (event.target.closest('[data-mood]')) ctx.feedback.play('place'); });
 $('#ambience-dock').addEventListener('change', event => { if (event.target.matches('input[type="range"]')) ctx.feedback.play(); });
 // Botones − / + de los sliders: un paso, con los mismos eventos que arrastrar y soltar.

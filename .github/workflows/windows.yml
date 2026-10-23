@@ -43,7 +43,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Habita-Studio-Windows
-          path: release/*.exe
+          path: |
+            release/*.exe
+            release/latest.yml
           if-no-files-found: error
 
       - name: Publicar el Release
@@ -51,7 +53,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.etiqueta || github.ref_name }}
-          files: release/*.exe
+          # latest.yml y el .blockmap permiten que Habita se actualice sola desde este Release.
+          files: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
           body: |
             ## Descargar
 
